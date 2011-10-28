@@ -177,7 +177,7 @@ public class BamIndexDecoder extends Illumina2bamCommandLine {
             }
             
             if(barcodeRead.length() < this.barcodeLength){
-                throw new RuntimeException("The barcode read length is less than barcode lenght: " + readName );
+                throw new RuntimeException("The barcode read length is less than barcode length: " + readName );
             }else{            
                 barcodeRead = barcodeRead.substring(0, this.barcodeLength);
             }
@@ -224,7 +224,7 @@ public class BamIndexDecoder extends Illumina2bamCommandLine {
         log.info("Decoding finished");
         
         
-        log.info("Writing out metrhics file");        
+        log.info("Writing out metrics file");        
         final MetricsFile<IndexDecoder.BarcodeMetric, Integer> metrics = getMetricsFile();        
         indexDecoder.writeMetrics(metrics, METRICS_FILE);
         

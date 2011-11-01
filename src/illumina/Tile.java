@@ -84,7 +84,7 @@ public class Tile {
      * @param id instrument with run id, which will be used for read name
      * @param laneNumber the run laneNumber number
      * @param tileNumber this tile number
-     * @param cycleRangeByRead cycle range for each read, the hash key could be read1, read2 or readIndex
+     * @param cycleRangeByRead cycle range for each read, the hash key could be read1, read2 or readIndex[n]
      * @param secondCall include second base call or not
      * @param pfFilter include PF filtered reads or not
      */
@@ -131,7 +131,7 @@ public class Tile {
             this.pairedRead = false;
         }
 
-        if (cycleRangeByRead.get("readIndex") != null) {
+        if (cycleRangeByRead.get("readIndex1") != null) {
             this.indexed = true;
         } else {
             this.indexed = false;
@@ -228,9 +228,25 @@ public class Tile {
             }
             
             //index read
-            byte [][] basesQualsIndex = null;
+            byte [][] basesQualsIndex1 = null;
+            byte [][] basesQualsIndex2 = null;
+
             if(this.isIndexed()){
-                 basesQualsIndex = this.getNextClusterBaseQuals("readIndex");
+                //TODO: Make generic in terms of how many readIndexes exist
+                basesQualsIndex1 = this.getNextClusterBaseQuals("readIndex1");
+                 
+
+                if (this.cycleRangeByRead.containsKey("readIndex2")) {
+                    basesQualsIndex2 = this.getNextClusterBaseQuals("readIndex2");
+
+                    if (!this.convertByteArrayToString(basesQualsIndex1[0]).equals(this.convertByteArrayToString(basesQualsIndex2[0]))) {
+                        //TODO: save reads with non-matching barcodes to a separate file
+                        //log.info("Indexes differ, not saving: " + this.convertByteArrayToString(basesQualsIndex1[0]) + " != " + this.convertByteArrayToString(basesQualsIndex2[0]));
+                        continue;
+                    }
+
+                }
+
             }
 
             //second call
@@ -246,10 +262,10 @@ public class Tile {
 
             //write to bam
             if(!(this.pfFilter && filtered == 0)){
-                SAMRecord recordRead1 = this.getSAMRecord(samFileHeader, readName, clusterIndex, basesQuals1, secondBases1, basesQualsIndex, filtered, pairedRead, true);
+                SAMRecord recordRead1 = this.getSAMRecord(samFileHeader, readName, clusterIndex, basesQuals1, secondBases1, basesQualsIndex1, filtered, pairedRead, true);
                 this.writeToBam(outputSam, recordRead1);
                 if(this.pairedRead){
-                    SAMRecord recordRead2 = this.getSAMRecord(samFileHeader, readName, clusterIndex, basesQuals2, secondBases2, null, filtered, pairedRead, false);
+                    SAMRecord recordRead2 = this.getSAMRecord(samFileHeader, readName, clusterIndex, basesQuals2, secondBases2, basesQualsIndex2, filtered, pairedRead, false);
                     this.writeToBam(outputSam, recordRead2);
                 }
             }
@@ -737,7 +753,7 @@ public class Tile {
         HashMap< String, int[] > cycleRangeByRead = new HashMap<String, int[]>(1);
         cycleRangeByRead.put("read1", cycleRangeRead1);
         cycleRangeByRead.put("read2", cycleRangeRead2);
-        cycleRangeByRead.put("readIndex", cycleRangeIndex);
+        cycleRangeByRead.put("readIndex1", cycleRangeIndex);
 
         Tile tile = new Tile(intensityDir, baseCallDir, id, lane, tileNumber, cycleRangeByRead, true, true, barcodeSeqTagName, barcodeQualTagName);
 

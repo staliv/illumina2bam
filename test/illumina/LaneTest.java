@@ -20,6 +20,7 @@
 
 package illumina;
 
+import java.util.ArrayList;
 import java.util.TimeZone;
 import java.util.Date;
 import net.sf.samtools.SAMReadGroupRecord;
@@ -30,6 +31,7 @@ import net.sf.samtools.SAMFileHeader;
 import java.io.IOException;
 import net.sf.samtools.SAMFileWriterFactory;
 import java.io.File;
+import java.util.Arrays;
 import net.sf.samtools.SAMProgramRecord;
 import java.util.HashMap;
 import org.junit.AfterClass;
@@ -184,9 +186,11 @@ public class LaneTest {
 
         Lane lane2 = new Lane(intensityDir2, baseCallDir2, laneNumber2, includeSecondCall2, pfFilter2, output, barcodeSeqTagName, barcodeQualTagName);
 
-        int [] barCodeCycleList = lane2.readBarCodeIndexCycles();
-        int [] expected = {76,77,78,79,80,81,82,83};
-        assertArrayEquals(barCodeCycleList, expected);
+        ArrayList<ArrayList<Integer>> barCodeCycleLists = lane2.readBarCodeIndexCycles();
+        ArrayList<ArrayList<Integer>> expected = new ArrayList<ArrayList<Integer>>();
+        ArrayList<Integer> barCodeCycle = new ArrayList<Integer>(Arrays.asList(76,77,78,79,80,81,82,83));
+        expected.add(barCodeCycle);
+        assertEquals(expected, barCodeCycleLists);
 
         HashMap<String, int[]> cycleRangeByRead = lane2.checkCycleRangeByRead();
         int [] read1CycleRange = {1, 75};
@@ -194,7 +198,7 @@ public class LaneTest {
         int [] read2CycleRange = {84, 158};
         assertArrayEquals(cycleRangeByRead.get("read2"), read2CycleRange);
         int [] readIndexCycleRange = {76, 83};
-        assertArrayEquals(cycleRangeByRead.get("readIndex"), readIndexCycleRange);
+        assertArrayEquals(cycleRangeByRead.get("readIndex1"), readIndexCycleRange);
 
     }
 
@@ -263,7 +267,7 @@ public class LaneTest {
         HashMap<String, int[]> cycleRangeByRead = new HashMap<String, int[]>(3);
         cycleRangeByRead.put("read1", cycleRangeRead1);
         cycleRangeByRead.put("read2", cycleRangeRead2);
-        cycleRangeByRead.put("readIndex", cycleRangeIndex);
+        cycleRangeByRead.put("readIndex1", cycleRangeIndex);
 
         lane.setCycleRangeByRead(cycleRangeByRead);
         lane.setId(id);
@@ -299,9 +303,12 @@ public class LaneTest {
 
         Lane lane3 = new Lane(intensityDir3, baseCallDir3, laneNumber3, includeSecondCall2, pfFilter2, output3, barcodeSeqTagName, barcodeQualTagName);
 
-        int [] barCodeCycleList = lane3.readBarCodeIndexCycles();
-        int [] expected = {77, 77};
-        assertArrayEquals(barCodeCycleList, expected);
+        ArrayList<ArrayList<Integer>> barCodeCycleLists = lane3.readBarCodeIndexCycles();
+        ArrayList<ArrayList<Integer>> expected = new ArrayList<ArrayList<Integer>>();
+        ArrayList<Integer> barCodeCycle = new ArrayList<Integer>(Arrays.asList(77,77));
+        expected.add(barCodeCycle);
+
+        assertEquals(barCodeCycleLists, expected);
 
         HashMap<String, int[]> cycleRangeByRead = lane3.checkCycleRangeByRead();
         int [] read1CycleRange = {10, 11};
@@ -309,7 +316,7 @@ public class LaneTest {
         int [] read2CycleRange = {94, 95};
         assertArrayEquals(cycleRangeByRead.get("read2"), read2CycleRange);
         int [] readIndexCycleRange = {77, 77};
-        assertArrayEquals(cycleRangeByRead.get("readIndex"), readIndexCycleRange);
+        assertArrayEquals(cycleRangeByRead.get("readIndex1"), readIndexCycleRange);
         
         int [] tileList = lane3.getTileList();
         assertEquals(tileList.length, 120);

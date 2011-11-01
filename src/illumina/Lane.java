@@ -450,31 +450,49 @@ public class Lane {
         HashMap<String, int[]> cycleRangeByReadMap = new HashMap<String, int[]>();
 
         int [][] cycleRangeByReadConfig = this.readCycleRangeByRead();
-        int [] barCodeCycleList = this.readBarCodeIndexCycles();
+        ArrayList<ArrayList<Integer>> barCodeCycleLists = this.readBarCodeIndexCycles();
 
         int numberOfReads = cycleRangeByReadConfig.length;
         log.info("There are " + numberOfReads + " reads returned");
 
-        if( (numberOfReads  > 3
+        //Now allows for two barcodes per paired read
+        if( (numberOfReads  > 4
                 || numberOfReads <1
-                ||(barCodeCycleList == null && numberOfReads >2))){
-            throw new Exception("Problems with number of reads in config file: " + numberOfReads);
+                ||(barCodeCycleLists == null && numberOfReads >2))){
+            throw new Exception("Problems with number of reads in config file: " + numberOfReads + ". barCodeCycleLists = " + ((barCodeCycleLists == null) ? "null" : barCodeCycleLists.size()));
         }
 
         int countActualReads = 0;
+        int countActualIndexes = 0;
         boolean indexReadFound = false;
 
         for(int i = 0; i < numberOfReads; i++){
             int firstCycle = cycleRangeByReadConfig[i][0];
             int lastCycle  = cycleRangeByReadConfig[i][1];
             int readLength = lastCycle - firstCycle + 1;
-            if(barCodeCycleList != null
-                    && firstCycle == barCodeCycleList[0]
-                    && readLength == barCodeCycleList.length){
-                
-                indexReadFound = true;
-                cycleRangeByReadMap.put("readIndex", cycleRangeByReadConfig[i]);
-                log.info("Indexing read cycle range: " + cycleRangeByReadConfig[i][0] + "-" +cycleRangeByReadConfig[i][1] );
+            if(barCodeCycleLists != null) {
+                //Iterate lists and add each barcode/index to cycle ranges
+                boolean currentReadIsIndex = false;
+                for (int j = 0; j < barCodeCycleLists.size(); j++) {
+                    ArrayList<Integer> barCodeCycleList = barCodeCycleLists.get(j);
+                    if (firstCycle == barCodeCycleList.get(0)
+                            && readLength == barCodeCycleList.size()) {
+                        //Found index/barcode
+                        indexReadFound = true;
+                        currentReadIsIndex = true;
+                        countActualIndexes++;
+
+                        cycleRangeByReadMap.put("readIndex" + countActualIndexes, cycleRangeByReadConfig[i]);
+                        log.info("readIndex" + countActualIndexes + " read cycle range: " + cycleRangeByReadConfig[i][0] + "-" +cycleRangeByReadConfig[i][1] );
+
+                    }
+                }
+                //TODO: Make pretty
+                if (!currentReadIsIndex) {
+                    countActualReads++;
+                    cycleRangeByReadMap.put("read"+ countActualReads, cycleRangeByReadConfig[i]);
+                    log.info("read"+ countActualReads + " cycle range: " + cycleRangeByReadConfig[i][0] + "-" +cycleRangeByReadConfig[i][1] );
+                }
             }else{
                 countActualReads++;
                 cycleRangeByReadMap.put("read"+ countActualReads, cycleRangeByReadConfig[i]);
@@ -482,8 +500,21 @@ public class Lane {
             }
         }
 
-        if( !indexReadFound && barCodeCycleList != null ) {
+        if( !indexReadFound && barCodeCycleLists != null ) {
             throw new Exception("Barcode cycle not found in read list");
+        }
+        
+        if (countActualIndexes > 1) {
+            int lastIndexLength = -1;
+            //Check that all indexes/barcodes have the same length
+            for (int i = 1; i <= countActualIndexes; i++) {
+                int [] readIndex = cycleRangeByReadMap.get("readIndex" + i);
+                if (lastIndexLength == -1) {
+                    lastIndexLength = readIndex[1] - readIndex[0];
+                } else if (lastIndexLength != (readIndex[1] - readIndex[0])) {
+                    throw new Exception("Barcodes/indexes differs in length");
+                }
+            }
         }
 
         return cycleRangeByReadMap;
@@ -532,10 +563,11 @@ public class Lane {
      *
      * @return indexing cycle number list
      */
-    public int [] readBarCodeIndexCycles(){
+    public ArrayList<ArrayList<Integer>> readBarCodeIndexCycles(){
         
         log.info("Reading barcode indexing cycle numbers");
         
+        ArrayList<ArrayList<Integer>> barCodeCycleLists = null;
         int [] barCodeCycleList = null;
         try {
             XPathExpression exprBarCode = xpath.compile("/BaseCallAnalysis/Run/RunParameters/Barcode/Cycle/text()");
@@ -548,10 +580,31 @@ public class Lane {
                 barCodeCycleList[i] = Integer.parseInt(barCodeNodeList.item(i).getNodeValue());
             }
             Arrays.sort(barCodeCycleList);
+            
+            //Split barcodes into multiple lists
+            //int barCodeListNumber = 0;
+            barCodeCycleLists = new ArrayList<ArrayList<Integer>>();
+            ArrayList<Integer> currentBarCodeList = new ArrayList<Integer>();
+            for (int i = 0; i < barCodeCycleList.length; i++) {
+                int barCodePosition = barCodeCycleList[i];
+
+                //Create new list if previous position differs more than one base against the current position
+                if (i > 0 && (barCodePosition - barCodeCycleList[i - 1] > 1)) {
+                    barCodeCycleLists.add(currentBarCodeList);
+                    currentBarCodeList = new ArrayList<Integer>();
+                }
+
+                currentBarCodeList.add(barCodePosition);
+                
+                //barCodeCycleLists[barCodeListNumber][barCodeCycleLists[barCodeListNumber].length] = barCodePosition;
+            }
+            barCodeCycleLists.add(currentBarCodeList);
+            
         } catch (XPathExpressionException ex) {
             log.info("There is no bar code cycle");
         }
-        return barCodeCycleList;
+        
+        return barCodeCycleLists;
     }
 
     /**

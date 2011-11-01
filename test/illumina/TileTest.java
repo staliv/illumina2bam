@@ -63,7 +63,7 @@ public class TileTest {
         HashMap<String, int[]> cycleRangeByRead = new HashMap<String, int[]>(3);
         cycleRangeByRead.put("read1", cycleRangeRead1);
         cycleRangeByRead.put("read2", cycleRangeRead2);
-        cycleRangeByRead.put("readIndex", cycleRangeIndex);
+        cycleRangeByRead.put("readIndex1", cycleRangeIndex);
         tile = new Tile(intensityDir, baseCallDir, id, lane, tileNumber, cycleRangeByRead, true, true, barcodeSeqTagName, barcodeQualTagName);
     }
 
@@ -121,7 +121,7 @@ public class TileTest {
         assertEquals(tile.getSclFileReaderListByRead().size(), 3);
         assertEquals(tile.getBclFileReaderListByRead().get("read1").length, 2);
         assertEquals(tile.getBclFileReaderListByRead().get("read2").length, 2);
-        assertEquals(tile.getBclFileReaderListByRead().get("readIndex").length, 1);
+        assertEquals(tile.getBclFileReaderListByRead().get("readIndex1").length, 1);
     }
 
     @Test
@@ -135,7 +135,7 @@ public class TileTest {
         assertEquals(tile.convertByteArrayToString(read2[0]), "NN");
         assertEquals(tile.convertPhredQualByteArrayToFastqString(read2[1]), "!!");
 
-        byte [][] readIndex = tile.getNextClusterBaseQuals("readIndex");
+        byte [][] readIndex = tile.getNextClusterBaseQuals("readIndex1");
         assertEquals(tile.convertByteArrayToString(readIndex[0]), "N");
         assertEquals(tile.convertPhredQualByteArrayToFastqString(readIndex[1]), "!");
     }
@@ -240,7 +240,7 @@ public class TileTest {
         HashMap<String, int[]> cycleRangeByRead = new HashMap<String, int[]>(3);
         cycleRangeByRead.put("read1", cycleRangeRead1GA);
         cycleRangeByRead.put("read2", cycleRangeRead2GA);
-        cycleRangeByRead.put("readIndex", cycleRangeIndexGA);
+        cycleRangeByRead.put("readIndex1", cycleRangeIndexGA);
         
         Tile tileGA = new Tile(intensityDirGA, baseCallDirGA, idGA, laneGA, tileNumberGA, cycleRangeByRead, false, true, barcodeSeqTagName, barcodeQualTagName);
         

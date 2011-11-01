@@ -28,6 +28,7 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -405,7 +406,21 @@ public class IndexDecoder {
             final String sampleName = (hasSampleName? row.getField(SAMPLE_NAME_COLUMN): "");
             final String description = (hasDescription? row.getField(DESCRIPTION_COLUMN): "");
             
-            NamedBarcode namedBarcode = new NamedBarcode(barcode, barcodeName, libraryName, sampleName, description);
+            
+            //Find and add endUserTags from barcode file (nn:TagDescription)
+            HashMap<String, String> endUserTags = new HashMap<String, String>();
+            final Set<String> columnNames = barcodesParser.getColumnNames();
+            for (final String columnName : columnNames) {
+                if (!columnName.equals(BARCODE_SEQUENCE_COLUMN) 
+                        && !columnName.equals(BARCODE_NAME_COLUMN)
+                        && !columnName.equals(LIBRARY_NAME_COLUMN)
+                        && !columnName.equals(SAMPLE_NAME_COLUMN)
+                        && !columnName.equals(DESCRIPTION_COLUMN)) {
+                    endUserTags.put(columnName.substring(0, 2).toLowerCase(), row.getField(columnName));
+                }
+            }
+            
+            NamedBarcode namedBarcode = new NamedBarcode(barcode, barcodeName, libraryName, sampleName, description, endUserTags);
             namedBarcodeList.add(namedBarcode);
         }
 
@@ -467,13 +482,15 @@ public class IndexDecoder {
         public final String libraryName;
         public final String sampleName;
         public final String description;
+        public HashMap<String, String> endUserTags;
 
-        public NamedBarcode(String barcode, String barcodeName, String libraryName, String sampleName, String description) {
+        public NamedBarcode(String barcode, String barcodeName, String libraryName, String sampleName, String description, HashMap<String, String> endUserTags) {
             this.barcode = barcode;
             this.barcodeName = barcodeName;
             this.libraryName = libraryName;
             this.sampleName = sampleName;
             this.description = description;
+            this.endUserTags = endUserTags;
         }
 
         public NamedBarcode(String barcode) {
@@ -482,6 +499,7 @@ public class IndexDecoder {
             this.libraryName = "";
             this.sampleName  = "";
             this.description = "";
+            this.endUserTags = null;
         }
 
         @Override

@@ -283,6 +283,15 @@ public class BamIndexDecoder extends Illumina2bamCommandLine {
                         if(namedBarcode.description != null && !namedBarcode.description.equals("") ){
                             newReadGroupRecord.setDescription(namedBarcode.description);
                         }
+                        //Add possible endUserTags
+                        if (namedBarcode.endUserTags != null && !(namedBarcode.endUserTags == null) && !namedBarcode.endUserTags.isEmpty()) {
+                            for (final String tagName : namedBarcode.endUserTags.keySet()) {
+                                final String tagValue = namedBarcode.endUserTags.get(tagName);
+                                if (!tagValue.equals("")) {
+                                    newReadGroupRecord.setAttribute(tagName, tagValue);
+                                }
+                            }
+                        }
                     }
                     readGroupList.add(newReadGroupRecord);
             }

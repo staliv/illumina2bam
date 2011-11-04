@@ -148,8 +148,8 @@ public class ModifyIlluminaConfig extends Illumina2bamCommandLine {
                 index++;
                 
                 //Create new elements for ImagingReads and Reads
-                Element imagingRead = new Element("ImagingRead");
-                Element newRead = new Element("Read");
+                Element imagingRead = new Element("ImagingReads");
+                Element newRead = new Element("Reads");
 
                 imagingRead.setAttribute("Index", Integer.toString(index));
                 newRead.setAttribute("Index", Integer.toString(index));
@@ -201,9 +201,9 @@ public class ModifyIlluminaConfig extends Illumina2bamCommandLine {
             Element runParameters = (Element) xpath.selectSingleNode(baseCallsXml);
             
             //Remove old element if it exists
-            runParameters.removeChildren("Barcodes");
+            runParameters.removeChildren("Barcode");
             
-            Element barcodesElement = new Element("Barcodes");
+            Element barcodesElement = new Element("Barcode");
             
             for (ArrayList<Integer> barcodeCycle : barcodes) {
 

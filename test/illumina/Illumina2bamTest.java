@@ -67,8 +67,15 @@ public class Illumina2bamTest {
         File samFile = new File("testdata/6000_1.sam");
         samFile.deleteOnExit();      
 
+        File samBarCodeMismatchFile = new File("testdata/6000_1.bcmismatch.sam");
+        samBarCodeMismatchFile.deleteOnExit();      
+
         File md5File = new File("testdata/6000_1.sam.md5");
         md5File.deleteOnExit();
+
+        File mismatchMd5File = new File("testdata/6000_1.bcmismatch.sam.md5");
+        mismatchMd5File.deleteOnExit();
+
         BufferedReader md5Stream = new BufferedReader(new FileReader(md5File));
         String md5 = md5Stream.readLine();
         assertEquals(md5, "9d789b61c9c4d5a4a6bb5ca92549c574");

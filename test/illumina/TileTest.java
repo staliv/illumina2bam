@@ -147,17 +147,26 @@ public class TileTest {
         File tempBamFile = File.createTempFile("test", ".bam", new File("testdata/"));
         tempBamFile.deleteOnExit();
 
+        File tempBarcodeMismatchBamFile = File.createTempFile("test.bcmismatch", ".bam", new File("testdata/"));
+        tempBarcodeMismatchBamFile.deleteOnExit();
+
         SAMFileWriterFactory factory = new SAMFileWriterFactory();
         factory.setCreateMd5File(true);
         SAMFileHeader header = new SAMFileHeader();
         SAMFileWriter outputSam = factory.makeSAMOrBAMWriter(header, true, tempBamFile);
+        SAMFileWriter barcodeMismatchOutputSam = factory.makeSAMOrBAMWriter(header, true, tempBarcodeMismatchBamFile);
 
         tile.openBaseCallFiles();
-        tile.processTile(outputSam);
+        tile.processTile(outputSam, barcodeMismatchOutputSam);
         outputSam.close();
+        barcodeMismatchOutputSam.close();
 
         File md5File = new File(tempBamFile.getAbsolutePath() + ".md5");
         md5File.deleteOnExit();
+
+        File mismatchMd5File = new File(tempBarcodeMismatchBamFile.getAbsolutePath() + ".md5");
+        mismatchMd5File.deleteOnExit();
+        
         BufferedReader md5Stream = new BufferedReader(new FileReader(md5File));
         String md5 = md5Stream.readLine();
 
@@ -169,9 +178,13 @@ public class TileTest {
         File tempBamFile = File.createTempFile("test", ".bam", new File("testdata/"));
         tempBamFile.deleteOnExit();
 
+        File tempBarcodeMismatchBamFile = File.createTempFile("test.bcmismatch", ".bam", new File("testdata/"));
+        tempBarcodeMismatchBamFile.deleteOnExit();
+
         SAMFileWriterFactory factory = new SAMFileWriterFactory();
         SAMFileHeader header = new SAMFileHeader();
         SAMFileWriter outputSam = factory.makeSAMOrBAMWriter(header, true, tempBamFile);
+        SAMFileWriter barcodeMismatchOutputSam = factory.makeSAMOrBAMWriter(header, true, tempBarcodeMismatchBamFile);
 
         String intensityDir_2 = "testdata/110405_HS17_06067_A_B035CABXX/Data/Intensities";
         String baseCallDir_2  = intensityDir_2 + File.separator + "BaseCalls";
@@ -185,9 +198,10 @@ public class TileTest {
 
         Tile tile2 = new Tile(intensityDir_2, baseCallDir_2, id_2, lane_2, tileNumber_2, cycleRangeByRead, false, true, barcodeSeqTagName, barcodeQualTagName);
         tile2.openBaseCallFiles();
-        tile2.processTile(outputSam);
+        tile2.processTile(outputSam, barcodeMismatchOutputSam);
         tile2.closeBaseCallFiles();
         outputSam.close();
+        barcodeMismatchOutputSam.close();
     }
 
     @Test
@@ -195,10 +209,14 @@ public class TileTest {
         File tempBamFile = File.createTempFile("test", ".bam", new File("testdata/"));
         tempBamFile.deleteOnExit();
 
+        File tempBarcodeMismatchBamFile = File.createTempFile("test.bcmismatch", ".bam", new File("testdata/"));
+        tempBarcodeMismatchBamFile.deleteOnExit();
+        
         SAMFileWriterFactory factory = new SAMFileWriterFactory();
         factory.setCreateMd5File(true);
         SAMFileHeader header = new SAMFileHeader();
         SAMFileWriter outputSam = factory.makeSAMOrBAMWriter(header, true, tempBamFile);
+        SAMFileWriter barcodeMismatchOutputSam = factory.makeSAMOrBAMWriter(header, true, tempBarcodeMismatchBamFile);
 
         String intensityDir_2 = "testdata/110405_HS17_06067_A_B035CABXX/Data/Intensities";
         String baseCallDir_2  = intensityDir_2 + File.separator + "BaseCalls";
@@ -212,12 +230,17 @@ public class TileTest {
 
         Tile tile2 = new Tile(intensityDir_2, baseCallDir_2, id_2, lane_2, tileNumber_2, cycleRangeByRead, false, false, barcodeSeqTagName, barcodeQualTagName);
         tile2.openBaseCallFiles();
-        tile2.processTile(outputSam);
+        tile2.processTile(outputSam, barcodeMismatchOutputSam);
         tile2.closeBaseCallFiles();
         outputSam.close();
+        barcodeMismatchOutputSam.close();
         
         File md5File = new File(tempBamFile.getAbsolutePath() + ".md5");
         md5File.deleteOnExit();
+        
+        File mismatchMd5File = new File(tempBarcodeMismatchBamFile.getAbsolutePath() + ".md5");
+        mismatchMd5File.deleteOnExit();
+        
         BufferedReader md5Stream = new BufferedReader(new FileReader(md5File));
         String md5 = md5Stream.readLine();
 
@@ -249,19 +272,29 @@ public class TileTest {
         File tempBamFileGA = File.createTempFile("test_ga", ".bam", new File("testdata/"));
         tempBamFileGA.deleteOnExit();
 
+        File tempBarcodeMismatchBamFileGA = File.createTempFile("test_ga.bcmismatch", ".bam", new File("testdata/"));
+        tempBarcodeMismatchBamFileGA.deleteOnExit();
+        
+
         SAMFileWriterFactory factory = new SAMFileWriterFactory();
         factory.setCreateMd5File(true);
         SAMFileHeader header = new SAMFileHeader();
         SAMFileWriter outputSam = factory.makeSAMOrBAMWriter(header, true, tempBamFileGA);
+        SAMFileWriter barcodeMismatchOutputSam = factory.makeSAMOrBAMWriter(header, true, tempBarcodeMismatchBamFileGA);
         
         System.out.println("Processing tiles");
         tileGA.openBaseCallFiles();
-        tileGA.processTile(outputSam);
+        tileGA.processTile(outputSam, barcodeMismatchOutputSam);
         tileGA.closeBaseCallFiles();
         outputSam.close();
+        barcodeMismatchOutputSam.close();
         
         File md5File = new File(tempBamFileGA.getAbsolutePath() + ".md5");
         md5File.deleteOnExit();
+        
+        File mismatchMd5File = new File(tempBarcodeMismatchBamFileGA.getAbsolutePath() + ".md5");
+        mismatchMd5File.deleteOnExit();
+        
         BufferedReader md5Stream = new BufferedReader(new FileReader(md5File));
         String md5 = md5Stream.readLine();
         

@@ -161,7 +161,7 @@ public class Tile {
      * @param outputSam
      * @throws Exception
      */
-    public void processTile(SAMFileWriter outputSam) throws Exception {
+    public void processTile(SAMFileWriter outputSam, SAMFileWriter barcodeMismatchOutputSam) throws Exception {
         
         log.info("Open filter file: " + this.getFilterFileName());
         FilterFileReader filterFileReader = new FilterFileReader(this.getFilterFileName());
@@ -206,6 +206,8 @@ public class Tile {
 
             clusterIndex++;
 
+            boolean barcodesMatch = true;
+
             //position
             String[] pos;
             if(clocsExisted){
@@ -240,9 +242,8 @@ public class Tile {
                     basesQualsIndex2 = this.getNextClusterBaseQuals("readIndex2");
 
                     if (!this.convertByteArrayToString(basesQualsIndex1[0]).equals(this.convertByteArrayToString(basesQualsIndex2[0]))) {
-                        //TODO: save reads with non-matching barcodes to a separate file
                         //log.info("Indexes differ, not saving: " + this.convertByteArrayToString(basesQualsIndex1[0]) + " != " + this.convertByteArrayToString(basesQualsIndex2[0]));
-                        continue;
+                        barcodesMatch = false;
                     }
 
                 }
@@ -263,10 +264,18 @@ public class Tile {
             //write to bam
             if(!(this.pfFilter && filtered == 0)){
                 SAMRecord recordRead1 = this.getSAMRecord(samFileHeader, readName, clusterIndex, basesQuals1, secondBases1, basesQualsIndex1, filtered, pairedRead, true);
-                this.writeToBam(outputSam, recordRead1);
+                if (barcodesMatch) {
+                    this.writeToBam(outputSam, recordRead1);
+                } else {
+                    this.writeToBam(barcodeMismatchOutputSam, recordRead1);
+                }
                 if(this.pairedRead){
                     SAMRecord recordRead2 = this.getSAMRecord(samFileHeader, readName, clusterIndex, basesQuals2, secondBases2, basesQualsIndex2, filtered, pairedRead, false);
-                    this.writeToBam(outputSam, recordRead2);
+                    if (barcodesMatch) {
+                        this.writeToBam(outputSam, recordRead2);
+                    } else {
+                        this.writeToBam(barcodeMismatchOutputSam, recordRead2);
+                    }
                 }
             }
         }
@@ -758,17 +767,19 @@ public class Tile {
         Tile tile = new Tile(intensityDir, baseCallDir, id, lane, tileNumber, cycleRangeByRead, true, true, barcodeSeqTagName, barcodeQualTagName);
 
         File outBam = new File("test.bam");
+        File barcodeMismatchOutBam = new File("test.bcmismatch.bam");
         SAMFileWriterFactory factory = new SAMFileWriterFactory();
         factory.setCreateMd5File(true);
         SAMFileHeader header = new SAMFileHeader();
-        SAMFileWriter outputSam = factory
-                .makeSAMOrBAMWriter(header, true, outBam);
+        SAMFileWriter outputSam = factory.makeSAMOrBAMWriter(header, true, outBam);
+        SAMFileWriter barcodesMismatchOutputSam = factory.makeSAMOrBAMWriter(header, true, barcodeMismatchOutBam);
 
         tile.openBaseCallFiles();
-        tile.processTile(outputSam);
+        tile.processTile(outputSam, barcodesMismatchOutputSam);
         tile.closeBaseCallFiles();
         
         outputSam.close();
+        barcodesMismatchOutputSam.close();
     }
 
     /**

@@ -156,16 +156,18 @@ public class Illumina2bam extends Illumina2bamCommandLine {
 
         log.info("Generating bam or sam file output stream with header");
         SAMFileWriter outBam = lane.generateOutputSamStream();
+        SAMFileWriter barcodeMismatchOutBam = lane.generateBarcodeMismatchOutputSamStream();
         
         log.info("Writing Basecall files to bam");
         try {
-            lane.processTiles(outBam);
+            lane.processTiles(outBam, barcodeMismatchOutBam);
         } catch (Exception ex) {
             log.error( "Problems to process tiles " + ex.getMessage() );
             return 1;
         }
 
         outBam.close();
+        barcodeMismatchOutBam.close();
         
         log.info("BAM or SAM file generated: " + this.OUTPUT);
 

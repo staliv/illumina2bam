@@ -40,7 +40,7 @@ import net.sf.picard.util.Log;
  * This class was separated from Picard ExtractIlluminaBarcodes class,
  * which originally only decode the reads in qseq files.
  * 
- * In Sanger we store barcode reads in BAM file as RT tag.
+ * In Sanger we store barcode reads in BAM file as RT (can also use BC) tag.
  * Using this separated class, we can decode BAM file using the same mechanism.
  * 
  * For qseq file decoding:

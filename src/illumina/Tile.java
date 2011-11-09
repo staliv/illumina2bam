@@ -21,6 +21,7 @@ package illumina;
 import illumina.file.reader.FilterFileReader;
 import illumina.file.reader.CLocsFileReader;
 import illumina.file.reader.BCLFileReader;
+//import illumina.file.reader.ControlFileReader;
 import illumina.file.reader.SCLFileReader;
 import illumina.file.reader.IlluminaFileReader;
 import illumina.file.reader.PosFileReader;
@@ -73,6 +74,7 @@ public class Tile {
     private final String cLocsFileName;
     protected final String posFileName;
     private final String filterFileName;
+    //private final String controlFileName;
 
     //file reader list
     private final HashMap<String, BCLFileReader[]> bclFileReaderListByRead;
@@ -154,6 +156,7 @@ public class Tile {
                 + this.tileNameInFour + "_pos.txt";
 
         this.filterFileName = this.checkFilterFileName();
+        //this.controlFileName = this.checkControlFileName();
     }
 
     /**
@@ -161,11 +164,17 @@ public class Tile {
      * @param outputSam
      * @throws Exception
      */
-    public void processTile(SAMFileWriter outputSam, SAMFileWriter barcodeMismatchOutputSam) throws Exception {
+    public void processTile(SAMFileWriter outputSam) throws Exception {
         
         log.info("Open filter file: " + this.getFilterFileName());
         FilterFileReader filterFileReader = new FilterFileReader(this.getFilterFileName());
+//        ControlFileReader controlFileReader = null;
         
+//        if (!(this.getControlFileName() == null)) {
+//            log.info("Open control file: " + this.getControlFileName());
+//            controlFileReader = new ControlFileReader(this.getControlFileName());
+//        }
+//        
         File clocsFile = new File( this.getcLocsFileName() );
         File posFile = new File( this.getPosFileName() );
 
@@ -220,6 +229,20 @@ public class Tile {
             //filtered
             int filtered = (Integer) filterFileReader.next();
 
+//            //control
+//            short controlSampleId = 0;
+//            
+//            if (controlFileReader != null) {
+//                if (controlFileReader.hasNext()) {
+//                    controlSampleId = (Short) controlFileReader.next();
+//                } else {
+//                    throw new Exception("Number of clusters in control file "
+//                            + controlFileReader.getFileName()
+//                            + " is incorrect");
+//                }
+//            }
+
+            
             //read 1
             byte [][] basesQuals1 = this.getNextClusterBaseQuals("read1");
 
@@ -263,19 +286,11 @@ public class Tile {
 
             //write to bam
             if(!(this.pfFilter && filtered == 0)){
-                SAMRecord recordRead1 = this.getSAMRecord(samFileHeader, readName, clusterIndex, basesQuals1, secondBases1, basesQualsIndex1, filtered, pairedRead, true);
-                if (barcodesMatch) {
-                    this.writeToBam(outputSam, recordRead1);
-                } else {
-                    this.writeToBam(barcodeMismatchOutputSam, recordRead1);
-                }
+                SAMRecord recordRead1 = this.getSAMRecord(samFileHeader, readName, clusterIndex, basesQuals1, secondBases1, basesQualsIndex1, filtered, pairedRead, true, barcodesMatch);
+                this.writeToBam(outputSam, recordRead1);
                 if(this.pairedRead){
-                    SAMRecord recordRead2 = this.getSAMRecord(samFileHeader, readName, clusterIndex, basesQuals2, secondBases2, basesQualsIndex2, filtered, pairedRead, false);
-                    if (barcodesMatch) {
-                        this.writeToBam(outputSam, recordRead2);
-                    } else {
-                        this.writeToBam(barcodeMismatchOutputSam, recordRead2);
-                    }
+                    SAMRecord recordRead2 = this.getSAMRecord(samFileHeader, readName, clusterIndex, basesQuals2, secondBases2, basesQualsIndex2, filtered, pairedRead, false, barcodesMatch);
+                    this.writeToBam(outputSam, recordRead2);
                 }
             }
         }
@@ -567,7 +582,8 @@ public class Tile {
             byte [][] baseQualsIndex,
             int filter,
             boolean paired,
-            boolean firstRead) {
+            boolean firstRead,
+            boolean barcodesMatch) {
 
         SAMRecord samRecord = new SAMRecord(fileHeader);
 
@@ -595,7 +611,7 @@ public class Tile {
         if(filter == 0){
             samRecord.setReadFailsVendorQualityCheckFlag(true);
         }
-
+        
         if(paired){
            samRecord.setReadPairedFlag(paired);
            samRecord.setMateUnmappedFlag(true);
@@ -614,6 +630,11 @@ public class Tile {
 
             samRecord.setAttribute(this.barcodeSeqTagName, this.convertByteArrayToString(baseQualsIndex[0]));
             samRecord.setAttribute(this.barcodeQualTagName, this.convertPhredQualByteArrayToFastqString(baseQualsIndex[1]));
+        }
+        
+        //Set tag on first read indicating that the barcodes/indexes do not match
+        if (firstRead && !barcodesMatch) {
+            samRecord.setAttribute("XB", 1);
         }
         
         return samRecord;
@@ -767,19 +788,16 @@ public class Tile {
         Tile tile = new Tile(intensityDir, baseCallDir, id, lane, tileNumber, cycleRangeByRead, true, true, barcodeSeqTagName, barcodeQualTagName);
 
         File outBam = new File("test.bam");
-        File barcodeMismatchOutBam = new File("test.bcmismatch.bam");
         SAMFileWriterFactory factory = new SAMFileWriterFactory();
         factory.setCreateMd5File(true);
         SAMFileHeader header = new SAMFileHeader();
         SAMFileWriter outputSam = factory.makeSAMOrBAMWriter(header, true, outBam);
-        SAMFileWriter barcodesMismatchOutputSam = factory.makeSAMOrBAMWriter(header, true, barcodeMismatchOutBam);
 
         tile.openBaseCallFiles();
-        tile.processTile(outputSam, barcodesMismatchOutputSam);
+        tile.processTile(outputSam);
         tile.closeBaseCallFiles();
         
         outputSam.close();
-        barcodesMismatchOutputSam.close();
     }
 
     /**
@@ -787,5 +805,32 @@ public class Tile {
      */
     public String getPosFileName() {
         return posFileName;
+    }
+
+//    private String getControlFileName() {
+//        return this.controlFileName;
+//    }
+
+    private String checkControlFileName() {
+        String controlFileNameLocal = this.baseCallDir
+                + File.separator
+                + this.laneSubDir
+                + File.separator
+                + this.tileNameInFour + ".control";
+        File controlFile = new File(controlFileNameLocal);
+    
+        if(!controlFile.exists()){
+            log.info("Control file " + controlFileNameLocal + " not in the basecall lane directory");
+            controlFileNameLocal = this.baseCallDir
+                + File.separator
+                + this.tileNameInFour + ".filter";
+            log.info("Now trying base call directory for the control file: " + controlFileNameLocal);
+        }
+        controlFile = new File(controlFileNameLocal);
+        if( !controlFile.exists() ){
+            log.error("No control file found for this tile");
+            controlFileNameLocal = null;
+        }
+        return controlFileNameLocal;
     }
 }

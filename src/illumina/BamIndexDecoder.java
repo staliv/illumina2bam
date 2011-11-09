@@ -145,7 +145,7 @@ public class BamIndexDecoder extends Illumina2bamCommandLine {
             boolean isPf = ! record.getReadFailsVendorQualityCheckFlag();
             Object barcodeReadObject = record.getAttribute(this.BARCODE_TAG_NAME);
             if(barcodeReadObject != null){
-                    barcodeRead = barcodeReadObject.toString();
+                barcodeRead = barcodeReadObject.toString();
             }
             
             SAMRecord pairedRecord = null;
@@ -165,8 +165,8 @@ public class BamIndexDecoder extends Illumina2bamCommandLine {
                         && barcodeReadObject2 != null
                         && ! barcodeReadObject.equals(barcodeReadObject2) ){
                     
-                    throw new RuntimeException("barcode read bases are different in paired two reads: "
-                            + barcodeReadObject + " " + barcodeReadObject2);
+                    //throw new RuntimeException("barcode read bases are different in paired two reads: "
+                    //        + barcodeReadObject + " " + barcodeReadObject2);
                 } else if( barcodeRead == null && barcodeReadObject2 != null ){
                     barcodeRead = barcodeReadObject2.toString();
                 }                

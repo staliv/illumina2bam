@@ -174,27 +174,6 @@ public class Lane {
         return outputSam;
     }
 
-        /**
-     *
-     * @return outputSam with header to write bam records
-     */
-    public SAMFileWriter generateBarcodeMismatchOutputSamStream(){
-
-        SAMFileWriterFactory factory = new SAMFileWriterFactory();
-
-        SAMFileHeader header = this.generateHeader();
-        
-        String mismatchFilePath = output.getAbsolutePath();
-        String fileType = mismatchFilePath.substring(mismatchFilePath.length() - 3);
-        mismatchFilePath = mismatchFilePath.substring(0, mismatchFilePath.length() - 4);
-        mismatchFilePath = mismatchFilePath + ".bcmismatch." + fileType;
-        
-        File barcodeMismatchOutput = new File(mismatchFilePath);
-
-        SAMFileWriter outputSam = factory.makeSAMOrBAMWriter(header, false, barcodeMismatchOutput);
-
-        return outputSam;
-    }
 
     /**
      * write BCL file to output stream tile by tile
@@ -203,7 +182,7 @@ public class Lane {
      * @return true if successfully
      * @throws Exception
      */
-    public boolean processTiles(SAMFileWriter outputSam, SAMFileWriter barcodesMismatchOutputSam) throws Exception{
+    public boolean processTiles(SAMFileWriter outputSam) throws Exception{
 
         for(int tileNumber : this.tileList){
             
@@ -218,7 +197,7 @@ public class Lane {
             tile.openBaseCallFiles();
             
             log.info("Reading all base call files");
-            tile.processTile(outputSam, barcodesMismatchOutputSam);
+            tile.processTile(outputSam);
             
             log.info("Closing base call files");
             tile.closeBaseCallFiles();

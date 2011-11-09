@@ -276,26 +276,18 @@ public class LaneTest {
         File tempBamFile = File.createTempFile("test", ".bam", new File("testdata/"));
         tempBamFile.deleteOnExit();
 
-        File tempBarcodeMismatchBamFile = File.createTempFile("test.bcmismatch", ".bam", new File("testdata/"));
-        tempBarcodeMismatchBamFile.deleteOnExit();
-
         SAMFileWriterFactory factory = new SAMFileWriterFactory();
         factory.setCreateMd5File(true);
         SAMFileHeader header = new SAMFileHeader();
         SAMFileWriter outputSam = factory.makeSAMOrBAMWriter(header, true, tempBamFile);
-        SAMFileWriter barcodeMismatchOutputSam = factory.makeSAMOrBAMWriter(header, true, tempBarcodeMismatchBamFile);
 
-        assertTrue(lane.processTiles(outputSam, barcodeMismatchOutputSam));
+        assertTrue(lane.processTiles(outputSam));
 
         outputSam.close();
-        barcodeMismatchOutputSam.close();
 
         File md5File = new File(tempBamFile.getAbsolutePath() + ".md5");
         md5File.deleteOnExit();
-        
-        File mismatchMd5File = new File(tempBarcodeMismatchBamFile.getAbsolutePath() + ".md5");
-        mismatchMd5File.deleteOnExit();
-        
+                
         BufferedReader md5Stream = new BufferedReader(new FileReader(md5File));
         String md5 = md5Stream.readLine();
         assertEquals(md5, "3e256b176c26283991ce0704457f0d3d");

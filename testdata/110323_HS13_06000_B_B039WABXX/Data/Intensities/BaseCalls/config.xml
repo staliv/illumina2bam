@@ -51,6 +51,7 @@
     <Cycles First="1" Last="100" Number="100"/>
     <Input/>
     <RunParameters>
+      <RunFlowcellId>FCID</RunFlowcellId>
       <AutoCycleFlag>0</AutoCycleFlag>
       <BasecallFlag>0</BasecallFlag>
       <Deblocked>0</Deblocked>

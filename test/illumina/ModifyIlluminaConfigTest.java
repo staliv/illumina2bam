@@ -53,7 +53,8 @@ public class ModifyIlluminaConfigTest {
         String[] args = {
             "I=testdata/modify/Intensities",
             "KEEP=false",
-            "RI=I4Y73N5I4Y73N5"
+            "RI=I4Y73N5I4Y73N5",
+            "TEMP_DIR=testdata/modify"
         };
 
         //Create config files from _config.xml
@@ -71,7 +72,7 @@ public class ModifyIlluminaConfigTest {
         
         modifier.instanceMain(args);
         
-        assertEquals(modifier.getCommandLine(), "illumina.ModifyIlluminaConfig INTENSITY_DIR=testdata/modify/Intensities READ_IDENTIFIER=I4Y73N5I4Y73N5 KEEP_OLD_CONFIG=false    VERBOSITY=INFO QUIET=false VALIDATION_STRINGENCY=STRICT COMPRESSION_LEVEL=5 MAX_RECORDS_IN_RAM=500000 CREATE_INDEX=false CREATE_MD5_FILE=false"); 
+        assertEquals(modifier.getCommandLine(), "illumina.ModifyIlluminaConfig INTENSITY_DIR=testdata/modify/Intensities TEMP_DIR=testdata/modify READ_IDENTIFIER=I4Y73N5I4Y73N5 KEEP_OLD_CONFIG=false    VERBOSITY=INFO QUIET=false VALIDATION_STRINGENCY=STRICT COMPRESSION_LEVEL=5 MAX_RECORDS_IN_RAM=500000 CREATE_INDEX=false CREATE_MD5_FILE=false"); 
 
         //TODO: Compare new config files to correct templates
 

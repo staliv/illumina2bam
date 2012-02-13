@@ -108,7 +108,10 @@ public class BamIndexDecoder extends Illumina2bamCommandLine {
     private IndexDecoder indexDecoder;
     
     private SAMFileWriter out;
+    private SAMFileWriter controlsOut;
+    private SAMFileWriter filterOut;
     private HashMap<String, SAMFileWriter> outputList;
+    private HashMap<String, SAMFileWriter> outputFilterList;
     private HashMap<String, String> barcodeNameList;
     
     public BamIndexDecoder() {
@@ -173,7 +176,9 @@ public class BamIndexDecoder extends Illumina2bamCommandLine {
             }
             
             if(barcodeRead == null ){
-                throw new RuntimeException("No barcode read found for record: " + readName );
+                barcodeRead = "";
+                isPf = true;
+                //    throw new RuntimeException("No barcode read found for record: " + readName );
             }
             
             if(barcodeRead.length() < this.barcodeLength){
@@ -188,37 +193,46 @@ public class BamIndexDecoder extends Illumina2bamCommandLine {
             if( match.matched ) {
                barcode = barcode.toUpperCase();
             } else {
-               barcode = "";
+               barcode = "undetermined";
             }
             
-            String barcodeName = this.barcodeNameList.get(barcode);
+//            String barcodeName = this.barcodeNameList.get(barcode);
 
-            record.setReadName(readName + "#" + barcodeName);
-            record.setAttribute("RG", record.getAttribute("RG") + "#" + barcodeName);
+            record.setReadName(readName + "." + barcode);
+            record.setAttribute("RG", record.getAttribute("RG") + "." + barcode);
             if (isPaired) {
-                pairedRecord.setReadName(readName + "#" + barcodeName);
-                pairedRecord.setAttribute("RG", pairedRecord.getAttribute("RG") + "#" + barcodeName);
+                pairedRecord.setReadName(readName + "." + barcode);
+                pairedRecord.setAttribute("RG", pairedRecord.getAttribute("RG") + "." + barcode);
             }
             
-            if( OUTPUT != null ){
-                out.addAlignment(record);
+            boolean isControl = (record.getAttribute("XC") != null);
+            boolean isFiltered = record.getReadFailsVendorQualityCheckFlag();
+
+            //Write to file
+            if (isControl) {
+                this.controlsOut.addAlignment(record);
                 if(isPaired){
-                    out.addAlignment(pairedRecord);
+                    this.controlsOut.addAlignment(pairedRecord);
+                }
+            } else if (isFiltered) {
+
+                SAMFileWriter filterOut = (OUTPUT != null) ? this.filterOut : this.outputFilterList.get(barcode);
+
+                filterOut.addAlignment(record);
+                if(isPaired){
+                    filterOut.addAlignment(pairedRecord);
                 }
             } else {
-                
-                SAMFileWriter outPerBarcode = this.outputList.get(barcode);
-                outPerBarcode.addAlignment(record);
+                SAMFileWriter currentOut = (OUTPUT != null) ? this.out : this.outputList.get(barcode);
+
+                currentOut.addAlignment(record);
                 if(isPaired){
-                    outPerBarcode.addAlignment(pairedRecord);
-                }                
+                    currentOut.addAlignment(pairedRecord);
+                }
             }
             
         }
         
-        if(out != null){
-           out.close();
-        }
         this.closeOutputList();
         
         log.info("Decoding finished");
@@ -236,7 +250,11 @@ public class BamIndexDecoder extends Illumina2bamCommandLine {
     public void generateOutputFile(SAMFileHeader header) {
         
         List<IndexDecoder.NamedBarcode> barcodeList = indexDecoder.getNamedBarcodes(); 
-        
+
+        String fcid = "unknown";
+        String lane = "unknown";
+        String runFolder = "unknown";
+
         this.barcodeNameList = new HashMap<String, String>();
         
         List<SAMReadGroupRecord> oldReadGroupList = header.getReadGroups();        
@@ -245,6 +263,7 @@ public class BamIndexDecoder extends Illumina2bamCommandLine {
         if (OUTPUT_DIR != null) {
             log.info("Open a list of output bam/sam file per barcode");
             outputList = new HashMap<String, SAMFileWriter>();
+            outputFilterList = new HashMap<String, SAMFileWriter>();
         }
 
         for (int count = 0; count <= barcodeList.size(); count++) {
@@ -260,19 +279,34 @@ public class BamIndexDecoder extends Illumina2bamCommandLine {
                 barcode = namedBarcode.barcode;
                 barcode = barcode.toUpperCase();
             }else{
-                barcode = "";
+                namedBarcode = new IndexDecoder.NamedBarcode("undetermined");
+                barcode = "undetermined";
+                barcodeName = "undetermined";
             }
 
             if (barcodeName == null || barcodeName.equals("")) {
                 barcodeName = Integer.toString(count);
             }
+            
 
             for(SAMReadGroupRecord r : oldReadGroupList){
-                    SAMReadGroupRecord newReadGroupRecord = new SAMReadGroupRecord(r.getId() + "#" + barcodeName, r);
+                    SAMReadGroupRecord newReadGroupRecord = new SAMReadGroupRecord(r.getId() + "." + barcode, r);
                     String pu = newReadGroupRecord.getPlatformUnit();
-                    if(pu != null){
-                        newReadGroupRecord.setPlatformUnit(pu + "#" + barcodeName);
+
+                    //Fetch fcid and lane from ID tag of RG-header
+                    if (count == 0 && r.getId().contains(".")) {
+                        fcid = r.getId().split("\\.")[0];
+                        lane = r.getId().split("\\.")[1];
                     }
+                    
+                    //Fetch runFolderId from rf-tag of RG-header
+                    if (count == 0 && r.getAttribute("rf") != null) {
+                        runFolder = r.getAttribute("rf");
+                        //Remove rf-tag from RG-header
+                        r.setAttribute("rf", null);
+                    }
+                    
+                    
                     if(namedBarcode != null){
                         if( namedBarcode.libraryName != null && !namedBarcode.libraryName.equals("") ){
                            newReadGroupRecord.setLibrary(namedBarcode.libraryName);
@@ -283,6 +317,13 @@ public class BamIndexDecoder extends Illumina2bamCommandLine {
                         if(namedBarcode.description != null && !namedBarcode.description.equals("") ){
                             newReadGroupRecord.setDescription(namedBarcode.description);
                         }
+                        if(namedBarcode.insertSize > -1){
+                            newReadGroupRecord.setPredictedMedianInsertSize(namedBarcode.insertSize);
+                        }
+                        if(namedBarcode.sequencingCenter != null && !namedBarcode.sequencingCenter.equals("") ){
+                            newReadGroupRecord.setSequencingCenter(namedBarcode.sequencingCenter);
+                        }
+
                         //Add possible endUserTags
                         if (namedBarcode.endUserTags != null && !(namedBarcode.endUserTags == null) && !namedBarcode.endUserTags.isEmpty()) {
                             for (final String tagName : namedBarcode.endUserTags.keySet()) {
@@ -299,28 +340,136 @@ public class BamIndexDecoder extends Illumina2bamCommandLine {
 
 
             if (OUTPUT_DIR != null) {
+                
+                if (count != 0 && !namedBarcode.flowCellId.equals(fcid) && !fcid.equals("unknown")) {
+                    throw new RuntimeException("FCID \"" + namedBarcode.flowCellId + "\" from barcode file differs from FCID in current sample: \"" + fcid + "\"");
+                }
+                
+                //Base directories on /project/run_folder_id/
+                
+                //Library_FCID_Lane_Index_pf.bam (for reads that pass the filter)
                 String barcodeBamOutputName = OUTPUT_DIR
                         + File.separator
-                        + OUTPUT_PREFIX
-                        + "#"
-                        + barcodeName
+                        + namedBarcode.project
+                        + File.separator
+                        + runFolder
+                        + File.separator
+                        + namedBarcode.libraryName
+                        + "_"
+                        + namedBarcode.flowCellId
+                        + "_"
+                        + namedBarcode.lane
+                        + "_"
+                        + ((!"".equals(namedBarcode.barcode)) ? namedBarcode.barcode + "_" : "")
+                        + "pf"
                         + "."
                         + OUTPUT_FORMAT;
+                
+                if (count == 0) {
+                    barcodeBamOutputName = OUTPUT_DIR
+                        + File.separator
+                        + namedBarcode.project
+                        + File.separator
+                        + runFolder
+                        + File.separator
+                        + "Undetermined_"
+                        + fcid
+                        + "_"
+                        + lane
+                        + "_pf"
+                        + "."
+                        + OUTPUT_FORMAT;                    
+                }
+
                 final SAMFileHeader outputHeader = header.clone();
                 outputHeader.setReadGroups(readGroupList);
                 this.addProgramRecordToHead(outputHeader, this.getThisProgramRecord(programName, programDS));
                 final SAMFileWriter outPerBarcode = new SAMFileWriterFactory().makeSAMOrBAMWriter(outputHeader, true, new File(barcodeBamOutputName));
                 outputList.put(barcode, outPerBarcode);
+
+                //Library_FCID_Lane_Index_non_pf.bam (for reads that don't pass the filter)
+                String barcodeFilterBamOutputName = OUTPUT_DIR
+                        + File.separator
+                        + namedBarcode.project
+                        + File.separator
+                        + runFolder
+                        + File.separator
+                        + namedBarcode.libraryName
+                        + "_"
+                        + namedBarcode.flowCellId
+                        + "_"
+                        + namedBarcode.lane
+                        + "_"
+                        + ((!"".equals(namedBarcode.barcode)) ? namedBarcode.barcode + "_" : "")
+                        + "non_pf"
+                        + "."
+                        + OUTPUT_FORMAT;
+
+                if (count == 0) {
+                    barcodeFilterBamOutputName = OUTPUT_DIR
+                        + File.separator
+                        + namedBarcode.project
+                        + File.separator
+                        + runFolder
+                        + File.separator
+                        + "Undetermined_"
+                        + fcid
+                        + "_"
+                        + lane
+                        + "_non_pf"
+                        + "."
+                        + OUTPUT_FORMAT;                    
+                }
+                
+                
+                final SAMFileWriter outPerFilterBarcode = new SAMFileWriterFactory().makeSAMOrBAMWriter(outputHeader, true, new File(barcodeFilterBamOutputName));
+                outputFilterList.put(barcode, outPerFilterBarcode);
+
             }
             barcodeNameList.put(barcode, barcodeName);
         }
+
+        //The bam files for control reads should be named: Controls_FCID_Lane_pf.bam and Controls_FCID_Lane_non_pf.bam
+        String barcodeControlBamOutputName;
         
+        if (OUTPUT_DIR != null) {
+            barcodeControlBamOutputName = OUTPUT_DIR
+                    + File.separator
+                    + "Undetermined"
+                    + File.separator
+                    + runFolder
+                    + File.separator
+                    + "Controls_"
+                    + fcid
+                    + "_"
+                    + lane
+                    + "."
+                    + OUTPUT_FORMAT;
+        } else {
+            barcodeControlBamOutputName = OUTPUT.getAbsolutePath().replace("\\.sam", "_Controls_" + fcid + "_" + lane + ".sam").replace("\\.bam", "_Controls_" + fcid + "_" + lane + ".bam");
+        }
+
+        final SAMFileHeader outputControlsHeader = header.clone();
+        outputControlsHeader.setReadGroups(fullReadGroupList);
+        this.addProgramRecordToHead(outputControlsHeader, this.getThisProgramRecord(programName, programDS));
+        final SAMFileHeader outputHeader = header.clone();
+        this.controlsOut = new SAMFileWriterFactory().makeSAMOrBAMWriter(outputHeader, true, new File(barcodeControlBamOutputName));
+
         if (OUTPUT != null) {
             log.info("Open output file with header: " + OUTPUT.getName());
-            final SAMFileHeader outputHeader = header.clone();
-            outputHeader.setReadGroups(fullReadGroupList);
-            this.addProgramRecordToHead(outputHeader, this.getThisProgramRecord(programName, programDS));
-            this.out = new SAMFileWriterFactory().makeSAMOrBAMWriter(outputHeader, true, OUTPUT);
+            final SAMFileHeader singleOutputHeader = header.clone();
+            singleOutputHeader.setReadGroups(fullReadGroupList);
+            this.addProgramRecordToHead(singleOutputHeader, this.getThisProgramRecord(programName, programDS));
+            this.out = new SAMFileWriterFactory().makeSAMOrBAMWriter(singleOutputHeader, true, OUTPUT);
+
+            String filteredFileName = OUTPUT.getAbsolutePath();
+            filteredFileName = filteredFileName.replaceAll("\\.sam", "_" + fcid + "_" + lane + "_non_pf.sam").replaceAll("\\.bam", "_" + fcid + "_" + lane + "_non_pf.bam");
+            log.info("Open filtered output file with header: " + filteredFileName);
+            final SAMFileHeader filteredOutputHeader = header.clone();
+            filteredOutputHeader.setReadGroups(fullReadGroupList);
+            this.addProgramRecordToHead(filteredOutputHeader, this.getThisProgramRecord(programName, programDS));
+            this.filterOut = new SAMFileWriterFactory().makeSAMOrBAMWriter(filteredOutputHeader, true, new File(filteredFileName));
+
         }
 
     }
@@ -331,6 +480,22 @@ public class BamIndexDecoder extends Illumina2bamCommandLine {
                 writer.close();
             }
         }
+        if( this.outputFilterList != null ){
+            for(SAMFileWriter writer: this.outputFilterList.values()){
+                writer.close();
+            }
+        }
+        if( this.controlsOut != null ){
+            this.controlsOut.close();
+        }
+
+        if( this.filterOut != null ){
+            this.filterOut.close();
+        }
+        if(this.out != null){
+           this.out.close();
+        }
+        
     }
 
     /**

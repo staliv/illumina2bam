@@ -142,7 +142,16 @@ public class IndexDecoder {
     }
 
     public BarcodeMatch extractBarcode(String barcodeRead, boolean isPf){
-        final BarcodeMatch match = findBestBarcode(barcodeRead, isPf);
+        final BarcodeMatch match;
+        if ("".equals(barcodeRead)) {
+            match = new BarcodeMatch();
+            match.barcode = "";
+            match.matched = true;
+            match.mismatches = 0;
+            match.mismatchesToSecondBest = 0;
+        } else {
+            match = findBestBarcode(barcodeRead, isPf);
+        }
         return match;
     } 
 
@@ -365,6 +374,12 @@ public class IndexDecoder {
     private static final String LIBRARY_NAME_COLUMN = "library_name";
     private static final String SAMPLE_NAME_COLUMN = "sample_name";
     private static final String DESCRIPTION_COLUMN = "description";
+    private static final String FCID_COLUMN = "fcid";
+    private static final String LANE_COLUMN = "lane";
+    private static final String SEQUENCING_CENTER_COLUMN = "sequencing_center";
+    private static final String INSERT_SIZE_COLUMN = "isize";
+    private static final String PROJECT_COLUMN = "pr:project";
+    
     
     /**
      * read and check input bar code file
@@ -386,13 +401,21 @@ public class IndexDecoder {
         boolean hasLibraryName = barcodesParser.hasColumn(LIBRARY_NAME_COLUMN);
         boolean hasSampleName = barcodesParser.hasColumn(SAMPLE_NAME_COLUMN);
         boolean hasDescription = barcodesParser.hasColumn(DESCRIPTION_COLUMN);
+        boolean hasFlowCellId = barcodesParser.hasColumn(FCID_COLUMN);
+        boolean hasLane = barcodesParser.hasColumn(LANE_COLUMN);
+        boolean hasSequencingCenter = barcodesParser.hasColumn(SEQUENCING_CENTER_COLUMN);
+        boolean hasInsertSize = barcodesParser.hasColumn(INSERT_SIZE_COLUMN);
+        boolean hasProject = barcodesParser.hasColumn(PROJECT_COLUMN);
         
         int barcodeLengthLocal = 0;
         Set<String> barcodes = new HashSet<String>();
         ArrayList<NamedBarcode> namedBarcodeList = new ArrayList<NamedBarcode>();
         
         for (final TabbedTextFileWithHeaderParser.Row row : barcodesParser) {
-            final String barcode = row.getField(BARCODE_SEQUENCE_COLUMN);
+            String barcode = row.getField(BARCODE_SEQUENCE_COLUMN);
+            if (barcode == null) {
+                barcode = "";
+            }
             if (barcodeLengthLocal == 0) barcodeLengthLocal = barcode.length();
             if (barcode.length() != barcodeLengthLocal) {
                 messages.add("Barcode " + barcode + " has different length from first barcode.");
@@ -405,22 +428,32 @@ public class IndexDecoder {
             final String libraryName = (hasLibraryName? row.getField(LIBRARY_NAME_COLUMN): "");
             final String sampleName = (hasSampleName? row.getField(SAMPLE_NAME_COLUMN): "");
             final String description = (hasDescription? row.getField(DESCRIPTION_COLUMN): "");
-            
+            final String flowCellId = (hasFlowCellId? row.getField(FCID_COLUMN): "");
+            final String lane = (hasLane? row.getField(LANE_COLUMN): "");
+            final String sequencingCenter = (hasSequencingCenter? row.getField(SEQUENCING_CENTER_COLUMN): "");
+            final int insertSize = Integer.parseInt((hasInsertSize? row.getField(INSERT_SIZE_COLUMN): "-1"));
+            final String project = (hasProject? row.getField(PROJECT_COLUMN): "");
             
             //Find and add endUserTags from barcode file (nn:TagDescription)
             HashMap<String, String> endUserTags = new HashMap<String, String>();
             final Set<String> columnNames = barcodesParser.getColumnNames();
             for (final String columnName : columnNames) {
-                if (!columnName.equals(BARCODE_SEQUENCE_COLUMN) 
+                if (columnName.contains(":")
+                        && !columnName.equals(BARCODE_SEQUENCE_COLUMN) 
                         && !columnName.equals(BARCODE_NAME_COLUMN)
                         && !columnName.equals(LIBRARY_NAME_COLUMN)
                         && !columnName.equals(SAMPLE_NAME_COLUMN)
-                        && !columnName.equals(DESCRIPTION_COLUMN)) {
+                        && !columnName.equals(DESCRIPTION_COLUMN)
+                        && !columnName.equals(FCID_COLUMN)
+                        && !columnName.equals(LANE_COLUMN)
+                        && !columnName.equals(INSERT_SIZE_COLUMN)
+                        && !columnName.equals(SEQUENCING_CENTER_COLUMN)
+                        ) {
                     endUserTags.put(columnName.substring(0, 2).toLowerCase(), row.getField(columnName));
                 }
             }
             
-            NamedBarcode namedBarcode = new NamedBarcode(barcode, barcodeName, libraryName, sampleName, description, endUserTags);
+            NamedBarcode namedBarcode = new NamedBarcode(barcode, barcodeName, libraryName, sampleName, description, flowCellId, lane, sequencingCenter, insertSize, project, endUserTags);
             namedBarcodeList.add(namedBarcode);
         }
 
@@ -482,15 +515,25 @@ public class IndexDecoder {
         public final String libraryName;
         public final String sampleName;
         public final String description;
+        public final String flowCellId;
+        public final String lane;
+        public final int insertSize;
+        public final String sequencingCenter;
+        public final String project;
         public HashMap<String, String> endUserTags;
 
-        public NamedBarcode(String barcode, String barcodeName, String libraryName, String sampleName, String description, HashMap<String, String> endUserTags) {
+        public NamedBarcode(String barcode, String barcodeName, String libraryName, String sampleName, String description, String flowCellId, String lane, String sequencingCenter, int insertSize, String project, HashMap<String, String> endUserTags) {
             this.barcode = barcode;
             this.barcodeName = barcodeName;
             this.libraryName = libraryName;
             this.sampleName = sampleName;
             this.description = description;
+            this.flowCellId = flowCellId;
+            this.lane = lane;
+            this.sequencingCenter = sequencingCenter;
+            this.insertSize = insertSize;
             this.endUserTags = endUserTags;
+            this.project = project;
         }
 
         public NamedBarcode(String barcode) {
@@ -499,7 +542,12 @@ public class IndexDecoder {
             this.libraryName = "";
             this.sampleName  = "";
             this.description = "";
+            this.flowCellId = "";
+            this.lane = "";
+            this.sequencingCenter = "";
+            this.insertSize = -1;
             this.endUserTags = null;
+            this.project = "Undetermined";
         }
 
         @Override

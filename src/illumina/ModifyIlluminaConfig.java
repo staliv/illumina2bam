@@ -53,6 +53,9 @@ public class ModifyIlluminaConfig extends Illumina2bamCommandLine {
     @Option(shortName="I", doc="The Intensities directory to modify config.xml files in.")
     public File INTENSITY_DIR;
 
+    @Option(shortName="T", doc="Directory for temporary files, needs write access.")
+    public File TEMP_DIR;
+
     @Option(shortName="B", doc="The BaseCalls directory, using BaseCalls directory under intensities if not given.", optional=true)
     public File BASECALLS_DIR;
 
@@ -61,25 +64,68 @@ public class ModifyIlluminaConfig extends Illumina2bamCommandLine {
     
     @Option(shortName="KEEP", doc="Keep old renamed config.xml files, defaults to true", optional=true)
     public boolean KEEP_OLD_CONFIG = true;
+
+    @Option(shortName="L", doc="Lane number, this creates lane specific config files named config_lane_[laneNumber].xml", optional=true)
+    public Integer LANE;
+    
     
     @Override
     protected int doWork() {
 
-        File intensityConfig = new File(INTENSITY_DIR.getAbsoluteFile() + File.separator + "config.xml");
-        IoUtil.assertFileIsWritable(intensityConfig);
+        String configBaseFileName = "config.xml";
+        String newBaseCallsConfigFileName = "basecallsconfig.xml";
+        String newIntensityConfigFileName = "intensitiesconfig.xml";
+        
+        
+        if (this.LANE != null) {
+            newBaseCallsConfigFileName = "basecallsconfig_lane_" + this.LANE + ".xml";
+            newIntensityConfigFileName = "intensitiesconfig_lane_" + this.LANE + ".xml";
+        }
+        
+        File intensityConfig = new File(INTENSITY_DIR.getAbsoluteFile() + File.separator + configBaseFileName);
+        IoUtil.assertFileIsReadable(intensityConfig);
         
         if (this.BASECALLS_DIR == null) {
             this.BASECALLS_DIR = new File(INTENSITY_DIR.getAbsoluteFile() + File.separator + "BaseCalls");
             log.info("BaseCalls directory not given, using " + this.BASECALLS_DIR);
         }
 
-        File baseCallsConfig = new File(BASECALLS_DIR.getAbsoluteFile() + File.separator + "config.xml");
-        IoUtil.assertFileIsWritable(baseCallsConfig);
+        File baseCallsConfig = new File(BASECALLS_DIR.getAbsoluteFile() + File.separator + configBaseFileName);
+        IoUtil.assertFileIsReadable(baseCallsConfig);
+
+        //Setup new config files
+        File newIntensityConfig = new File(TEMP_DIR + File.separator + newIntensityConfigFileName);
+        IoUtil.assertFileIsWritable(newIntensityConfig);
+        
+        File newBaseCallsConfig = new File(TEMP_DIR + File.separator + newBaseCallsConfigFileName);
+        IoUtil.assertFileIsWritable(newBaseCallsConfig);
+
+        //Copy config from base config xmls if the new files do not already exist and the files are not the same
+        if (!configBaseFileName.equals(newBaseCallsConfigFileName) && !newIntensityConfig.exists()) {
+            try {
+                copyFile(intensityConfig, newIntensityConfig);
+            } catch (IOException ex) {
+                Logger.getLogger(ModifyIlluminaConfig.class.getName()).log(Level.SEVERE, null, ex);
+            }
+
+            log.info("Copied config file to " + newIntensityConfig);
+            
+        }
+        if (!configBaseFileName.equals(newBaseCallsConfigFileName) && !newBaseCallsConfig.exists()) {
+            try {
+                copyFile(baseCallsConfig, newBaseCallsConfig);
+            } catch (IOException ex) {
+                Logger.getLogger(ModifyIlluminaConfig.class.getName()).log(Level.SEVERE, null, ex);
+            }
+
+            log.info("Copied config file to " + newBaseCallsConfig);
+            
+        }
         
         if (this.KEEP_OLD_CONFIG) {
             SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyMMdd-hhmmss");
-            File oldBaseCallsConfig = new File(BASECALLS_DIR.getAbsoluteFile() + File.separator + "config-" + simpleDateFormat.format(new Date()) + ".xml");
-            File oldIntensityConfig = new File(INTENSITY_DIR.getAbsoluteFile() + File.separator + "config-" + simpleDateFormat.format(new Date()) + ".xml");
+            File oldBaseCallsConfig = new File(BASECALLS_DIR.getAbsoluteFile() + File.separator + newBaseCallsConfigFileName.replaceFirst(".xml", "-") + simpleDateFormat.format(new Date()) + ".xml");
+            File oldIntensityConfig = new File(INTENSITY_DIR.getAbsoluteFile() + File.separator + newBaseCallsConfigFileName.replaceFirst(".xml", "-") + simpleDateFormat.format(new Date()) + ".xml");
             try {
                 copyFile(baseCallsConfig, oldBaseCallsConfig);
             } catch (IOException ex) {
@@ -91,12 +137,12 @@ public class ModifyIlluminaConfig extends Illumina2bamCommandLine {
                 Logger.getLogger(ModifyIlluminaConfig.class.getName()).log(Level.SEVERE, null, ex);
             }
 
-            log.info("Copied old config files to " + oldIntensityConfig + " and " + oldBaseCallsConfig);
+            log.info("Created backups of config files to " + oldIntensityConfig + " and " + oldBaseCallsConfig);
         }
 
         HashMap<String, List<ArrayList<Integer>>> readsAndBarcodes = getReadsAndBarcodes(this.READ_IDENTIFIER);
         try {
-            modifyConfigurationFiles(intensityConfig, baseCallsConfig, readsAndBarcodes);
+            modifyConfigurationFiles(newIntensityConfig, newBaseCallsConfig, readsAndBarcodes);
         } catch (IOException ex) {
             Logger.getLogger(ModifyIlluminaConfig.class.getName()).log(Level.SEVERE, null, ex);
         } catch (JDOMException ex) {
@@ -247,6 +293,8 @@ public class ModifyIlluminaConfig extends Illumina2bamCommandLine {
         
         int currentPosition = 1;
         int basePairs = 0;
+        
+        readIdentifier = readIdentifier.toUpperCase();
         
         for (int i = 0; i < readIdentifier.length(); i++) {
             char character = readIdentifier.charAt(i);

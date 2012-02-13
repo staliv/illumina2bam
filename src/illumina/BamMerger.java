@@ -20,12 +20,16 @@ package illumina;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import net.sf.picard.cmdline.Option;
 import net.sf.picard.cmdline.StandardOptionDefinitions;
 import net.sf.picard.cmdline.Usage;
 import net.sf.picard.io.IoUtil;
 import net.sf.picard.util.Log;
+import net.sf.samtools.Cigar;
+import net.sf.samtools.CigarElement;
+import net.sf.samtools.CigarOperator;
 import net.sf.samtools.SAMFileHeader;
 import net.sf.samtools.SAMFileReader;
 import net.sf.samtools.SAMFileWriter;
@@ -92,6 +96,11 @@ public class BamMerger extends Illumina2bamCommandLine {
     @Option(shortName= "KEEP", doc="KEEP extra unmapped reads in unmapped bam file to the final output if true.")
     public Boolean KEEP_EXTRA_UNMAPPED_READS = false;
 
+    @Option(shortName= "REPLACE_QUAL", doc="Replace base qualities in aligned bam with the ones in unaligned bam if true.")
+    public Boolean REPLACE_ALIGNED_BASE_QUALITY = false;
+
+    @Option(shortName= "KEEP_QUAL", doc="Keep base qualities in aligned bam if true.")
+    public Boolean KEEP_ALIGNED_BASE_QUALITY = false;
 
     @Override
     protected int doWork() {
@@ -236,6 +245,58 @@ public class BamMerger extends Illumina2bamCommandLine {
         boolean isNegativeStrand2 = record.getReadNegativeStrandFlag();
         if( isNegativeStrand1 != isNegativeStrand2 ){
             SAMRecordUtil.reverseComplement(record);
+        }
+
+
+        if( ! Arrays.equals( alignment.getReadBases(), record.getReadBases() ) ){
+
+            //Check hard clipping and remove from bases before comparing readbases again
+            Cigar cigar = alignment.getCigar();
+            CigarElement firstElement = cigar.getCigarElement(0);
+            CigarElement lastElement = cigar.getCigarElement(cigar.numCigarElements() - 1);
+            if (firstElement.getOperator() == CigarOperator.HARD_CLIP || lastElement.getOperator() == CigarOperator.HARD_CLIP) {
+                boolean beginsWithHardClipping = false;
+                if (firstElement.getOperator() == CigarOperator.HARD_CLIP) {
+
+                    //Remove n bases from record and add to XH tag to aligned read
+                    beginsWithHardClipping = true;
+                    String hardClippedBeginning = record.getReadString().substring(0, firstElement.getLength());
+                    alignment.setAttribute("XH", hardClippedBeginning);
+
+                    //Trim the first bases
+                    record.setReadString(record.getReadString().substring(firstElement.getLength()));
+
+                }
+
+                if (lastElement.getOperator() == CigarOperator.HARD_CLIP) {
+
+                    //Remove n bases from record and add to XH tag to aligned read
+                    String hardClippedEnding = record.getReadString();
+                    hardClippedEnding = hardClippedEnding.substring(hardClippedEnding.length() - lastElement.getLength());
+                    if (beginsWithHardClipping) {
+                        alignment.setAttribute("XH", alignment.getAttribute("XH") + "," + hardClippedEnding);
+                    } else {
+                        alignment.setAttribute("XH", hardClippedEnding);
+                    }
+                    
+                    //Trim the end bases
+                    record.setReadString(record.getReadString().substring(record.getReadString().length() - lastElement.getLength()));
+                }
+
+            }
+        }
+
+        //Check again if the bases are equal
+        if( ! Arrays.equals( alignment.getReadBases(), record.getReadBases() ) ){
+            throw new RuntimeException( "Bases are different for read " + record.getReadName() );
+        }
+        
+        if(this.REPLACE_ALIGNED_BASE_QUALITY){
+            alignment.setBaseQualities(record.getBaseQualities());
+        }else if (this.KEEP_ALIGNED_BASE_QUALITY) {
+            //Do nothin
+        }else if( ! Arrays.equals( alignment.getBaseQualities(), record.getBaseQualities() ) ){
+            throw new RuntimeException( "Qualities are different for read " + record.getReadName() );
         }
         
         alignment.setReadFailsVendorQualityCheckFlag(record.getReadFailsVendorQualityCheckFlag());

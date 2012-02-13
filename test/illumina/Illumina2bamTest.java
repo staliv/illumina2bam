@@ -59,6 +59,7 @@ public class Illumina2bamTest {
             "SM=Test Sample",
             "ST=testStudy",
             "TMP_DIR=testdata/",
+            "TEMP_DIR=testdata/",
             "RUN_START_DATE=2011-03-23T00:00:00+0000"
         };
         illumina2bam.instanceMain(args);
@@ -67,25 +68,19 @@ public class Illumina2bamTest {
         File samFile = new File("testdata/6000_1.sam");
         samFile.deleteOnExit();      
 
-        File samBarCodeMismatchFile = new File("testdata/6000_1.bcmismatch.sam");
-        samBarCodeMismatchFile.deleteOnExit();      
-
         File md5File = new File("testdata/6000_1.sam.md5");
         md5File.deleteOnExit();
 
-        File mismatchMd5File = new File("testdata/6000_1.bcmismatch.sam.md5");
-        mismatchMd5File.deleteOnExit();
-
         BufferedReader md5Stream = new BufferedReader(new FileReader(md5File));
         String md5 = md5Stream.readLine();
-        assertEquals(md5, "9d789b61c9c4d5a4a6bb5ca92549c574");
+        assertEquals(md5, "10c95857a688a0d50871f39d593ea6e7");
 
         assertEquals(illumina2bam.getCommandLine(), "illumina.Illumina2bam"
-                + " INTENSITY_DIR=testdata/110323_HS13_06000_B_B039WABXX/Data/Intensities"
+                + " INTENSITY_DIR=testdata/110323_HS13_06000_B_B039WABXX/Data/Intensities TEMP_DIR=testdata"
                 + " LANE=1 OUTPUT=testdata/6000_1.sam SAMPLE_ALIAS=Test Sample LIBRARY_NAME=Test library"
                 + " STUDY_NAME=testStudy RUN_START_DATE=2011-03-23T00:00:00+0000 FIRST_TILE=1101 TILE_LIMIT=1"
                 + " TMP_DIR=[testdata] VALIDATION_STRINGENCY=STRICT COMPRESSION_LEVEL=1"
-                + " CREATE_MD5_FILE=true    GENERATE_SECONDARY_BASE_CALLS=false PF_FILTER=true READ_GROUP_ID=1"
+                + " CREATE_MD5_FILE=true    GENERATE_SECONDARY_BASE_CALLS=false PF_FILTER=true"
                 + " SEQUENCING_CENTER=SC PLATFORM=ILLUMINA BARCODE_SEQUENCE_TAG_NAME=BC BARCODE_QUALITY_TAG_NAME=QT"
                 + " VERBOSITY=INFO QUIET=false MAX_RECORDS_IN_RAM=500000 CREATE_INDEX=false"
                );

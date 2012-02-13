@@ -47,12 +47,14 @@ public class LaneTest {
 
     private static String intensityDir = "testdata/110323_HS13_06000_B_B039WABXX/Data/Intensities";
     private static String baseCallDir = "testdata/110323_HS13_06000_B_B039WABXX/Data/Intensities/BaseCalls";
+    private static String tempDir = "testdata/110323_HS13_06000_B_B039WABXX/Data";
     private static int laneNumber = 1;
     private static boolean includeSecondCall = true;
     private static boolean pfFilter = true;
     private static String barcodeSeqTagName = "RT";
     private static String barcodeQualTagName = "QT";
-
+    private static boolean useLaneSpecifigConfig = false;
+    
     private static File output = new File("testdata/6000_1.bam");
 
     private static Lane lane;
@@ -63,7 +65,7 @@ public class LaneTest {
 
     @BeforeClass
     public static void setUpClass() throws Exception {        
-        lane = new Lane(intensityDir, baseCallDir, laneNumber, includeSecondCall, pfFilter, output, barcodeSeqTagName, barcodeQualTagName);
+        lane = new Lane(intensityDir, baseCallDir, tempDir, laneNumber, includeSecondCall, pfFilter, output, barcodeSeqTagName, barcodeQualTagName, useLaneSpecifigConfig);
     }
 
     @AfterClass
@@ -138,7 +140,7 @@ public class LaneTest {
 
     @Test
     public void readRunfolderOK(){
-        assertEquals(lane.readRunfoder(), "110323_HS13_06000_B_B039WABXX");
+        assertEquals(lane.readRunfolder(), "110323_HS13_06000_B_B039WABXX");
     }
  
     @Test
@@ -180,11 +182,13 @@ public class LaneTest {
     public void checkReadCycleRangeOK() throws Exception {
         String intensityDir2 = "testdata/110405_HS17_06067_A_B035CABXX/Data/Intensities";
         String baseCallDir2 = "testdata/110405_HS17_06067_A_B035CABXX/Data/Intensities/BaseCalls";
+        String tempDir2 = "testdata/110405_HS17_06067_A_B035CABXX/Data/";
         int laneNumber2 = 1;
         boolean includeSecondCall2 = true;
         boolean pfFilter2 = true;
-
-        Lane lane2 = new Lane(intensityDir2, baseCallDir2, laneNumber2, includeSecondCall2, pfFilter2, output, barcodeSeqTagName, barcodeQualTagName);
+        boolean useLaneSpecificConfig2 = false;
+        
+        Lane lane2 = new Lane(intensityDir2, baseCallDir2, tempDir2, laneNumber2, includeSecondCall2, pfFilter2, output, barcodeSeqTagName, barcodeQualTagName, useLaneSpecificConfig2);
 
         ArrayList<ArrayList<Integer>> barCodeCycleLists = lane2.readBarCodeIndexCycles();
         ArrayList<ArrayList<Integer>> expected = new ArrayList<ArrayList<Integer>>();
@@ -297,12 +301,14 @@ public class LaneTest {
     public void checkGARunOK() throws Exception {
         String intensityDir3 = "testdata/110519_IL33_06284/Data/Intensities/";
         String baseCallDir3 = "testdata/110519_IL33_06284/Data/Intensities/BaseCalls";
+        String tempDir3 = "testdata/110519_IL33_06284/Data";
         int laneNumber3 = 8;
         boolean includeSecondCall2 = false;
         boolean pfFilter2 = true;
         File output3 = new File("testdata/6284_8.bam");
+        boolean useLaneSpecificConfig3 = false;
 
-        Lane lane3 = new Lane(intensityDir3, baseCallDir3, laneNumber3, includeSecondCall2, pfFilter2, output3, barcodeSeqTagName, barcodeQualTagName);
+        Lane lane3 = new Lane(intensityDir3, baseCallDir3, tempDir3, laneNumber3, includeSecondCall2, pfFilter2, output3, barcodeSeqTagName, barcodeQualTagName, useLaneSpecificConfig3);
 
         ArrayList<ArrayList<Integer>> barCodeCycleLists = lane3.readBarCodeIndexCycles();
         ArrayList<ArrayList<Integer>> expected = new ArrayList<ArrayList<Integer>>();

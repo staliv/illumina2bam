@@ -64,6 +64,7 @@ public class Lane {
     //fields must be given about input data
     private final String intensityDir;
     private final String baseCallDir;
+    private final String tempDir;
     private final int laneNumber;
 
     //fields must be given about what to output
@@ -95,6 +96,8 @@ public class Lane {
     
     private Date runDateConfig;
     private String runfolderConfig;
+    private String runFlowCellId;
+    private String runInstrument;
     
     //other fields    
     private SAMProgramRecord illumina2bamProgram;
@@ -115,15 +118,18 @@ public class Lane {
      */
     public Lane(String intensityDir,
                 String baseCallDir,
+                String tempDir,
                 int laneNumber,
                 boolean secondCall,
                 boolean pfFilter,
                 File output,
                 String barcodeSeqTagName,
-                String barcodeQualTagName){
+                String barcodeQualTagName,
+                boolean useLaneSpecificConfig){
 
         this.intensityDir      = intensityDir;
         this.baseCallDir       = baseCallDir;
+        this.tempDir           = tempDir;
         this.laneNumber        = laneNumber;
         this.includeSecondCall = secondCall;
         this.pfFilter          = pfFilter;
@@ -131,14 +137,28 @@ public class Lane {
         this.barcodeSeqTagName  = barcodeSeqTagName;
         this.barcodeQualTagName = barcodeQualTagName;
 
-        this.baseCallsConfig = this.baseCallDir
-                             + File.separator
-                             + "config.xml";
+        if (useLaneSpecificConfig) {
 
-        this.intensityConfig = this.intensityDir
-                             + File.separator
-                             + "config.xml";
+            this.baseCallsConfig = this.tempDir
+                                 + File.separator
+                                 + "basecallsconfig_lane_" + this.laneNumber + ".xml";
 
+            this.intensityConfig = this.tempDir
+                                 + File.separator
+                                 + "intensitiesconfig_lane_" + this.laneNumber + ".xml";
+            
+        } else {
+
+            this.baseCallsConfig = this.baseCallDir
+                                 + File.separator
+                                 + "config.xml";
+
+            this.intensityConfig = this.intensityDir
+                                 + File.separator
+                                 + "config.xml";
+        }
+                
+        
         XPathFactory factory = XPathFactory.newInstance();
         xpath = factory.newXPath();
 
@@ -155,6 +175,7 @@ public class Lane {
 
         this.readBaseCallsConfig();
         this.readIntensityConfig();
+        //this.readRunInfoConfig();
 
         return true;
     }
@@ -236,7 +257,8 @@ public class Lane {
         } catch (IOException ex) {
             log.error(ex, "Problems to read intensity config xml file " + this.intensityConfig);
         }
-   
+        
+        
     }
 
     /**
@@ -281,7 +303,7 @@ public class Lane {
         log.info("Check number of Reads and cycle numbers for each read");
         this.cycleRangeByRead = this.checkCycleRangeByRead();
         
-        this.runfolderConfig = this.readRunfoder();
+        this.runfolderConfig = this.readRunfolder();
         if(this.runfolderConfig != null ){
             log.info("Runfolder: " + runfolderConfig);
         }
@@ -289,6 +311,11 @@ public class Lane {
         this.runDateConfig = this.readRunDate();
         if(this.runDateConfig != null){
             log.info("Run date: " + runDateConfig);
+        }
+
+        this.runFlowCellId = this.readFlowCellId();
+        if(this.runFlowCellId != null ){
+            log.info("Flow cell id: " + runFlowCellId);
         }
 
     }
@@ -313,7 +340,34 @@ public class Lane {
             log.info("Instrument Program: " + instrumentProgram.getProgramName() + " " + instrumentProgram.getProgramVersion());
         }
 
+        this.readInstrument();
+        
     }
+    /**
+     * read instrument
+     * @throws Exception
+     */
+    private void readInstrument() throws Exception {
+
+        String instrument = null;
+        try {
+            XPathExpression exprRunInstrument = xpath.compile("/ImageAnalysis/Run/RunParameters/Instrument/text()");
+            Node runInstrumentNode = (Node) exprRunInstrument.evaluate(intensityConfigDoc, XPathConstants.NODE);
+            instrument = runInstrumentNode.getNodeValue();
+        } catch (XPathExpressionException ex) {
+            log.warn(ex, "Problems to read instrument");
+        }
+
+        this.runInstrument = instrument;
+        if(instrument == null){
+            throw new Exception("Problems to get instrument name from config file: " + this.intensityConfig);
+        }else{
+            log.info("Instrument: " + instrument);
+        }
+
+    }
+
+    
     /**
      *
      * @return an object of SAMProgramRecord for base calling program
@@ -583,7 +637,6 @@ public class Lane {
             Arrays.sort(barCodeCycleList);
             
             //Split barcodes into multiple lists
-            //int barCodeListNumber = 0;
             barCodeCycleLists = new ArrayList<ArrayList<Integer>>();
             ArrayList<Integer> currentBarCodeList = new ArrayList<Integer>();
             for (int i = 0; i < barCodeCycleList.length; i++) {
@@ -643,7 +696,7 @@ public class Lane {
      * 
      * @return  runfolder name
      */
-    public String readRunfoder(){
+    public String readRunfolder(){
         
         String runfolder = null;
         try {
@@ -656,7 +709,26 @@ public class Lane {
         
         return runfolder;
     }
-    
+
+    /**
+     * 
+     * @return  flow cell id name
+     */
+    public String readFlowCellId(){
+        
+        String fcid = null;
+        try {
+            XPathExpression exprRunFlowCellId = xpath.compile("/BaseCallAnalysis/Run/RunParameters/RunFlowcellId/text()");
+            Node runFlowCellIdNode = (Node) exprRunFlowCellId.evaluate(baseCallsConfigDoc, XPathConstants.NODE);
+            fcid = runFlowCellIdNode.getNodeValue();
+        } catch (XPathExpressionException ex) {
+            log.warn(ex, "Problems to read flow cell id");
+            fcid = "unknown";
+        }
+        
+        return fcid;
+    }
+
     /**
      *  
      * @return run date
@@ -804,6 +876,20 @@ public class Lane {
      */
     public String getRunfolderConfig() {
         return runfolderConfig;
+    }
+
+    /**
+     * @return the runFlowCellId
+     */
+    public String getRunFlowCellId() {
+        return runFlowCellId;
+    }
+
+    /**
+     * @return the runfolderConfig
+     */
+    public String getRunInstrumentConfig() {
+        return runInstrument;
     }
 
     /**

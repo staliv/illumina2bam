@@ -97,7 +97,7 @@ public class TileTest {
         String secondBases = "AAA";
         byte [][] baseQualsIndex = {{84, 67}, {37 ,34} };
         SAMRecord record = tile.getSAMRecord(
-                null, readName, 5, baseQuals, secondBases, baseQualsIndex, 0, true, true, true);
+                null, readName, 5, baseQuals, secondBases, baseQualsIndex, 0, true, true, true, false);
         String result = "HS13_6000:1:1101:21238:9999	589"
                 + "	*	*	0	*	*	*	*	"
                 + "NG	BA	E2:Z:AAA	RG:Z:1	QT:Z:FC	RT:Z:TC	ci:i:5";

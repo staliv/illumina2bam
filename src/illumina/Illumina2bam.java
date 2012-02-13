@@ -49,6 +49,9 @@ public class Illumina2bam extends Illumina2bamCommandLine {
     @Option(shortName="I", doc="Illumina intensities directory including config xml file, and clocs files under lane directory.")
     public File INTENSITY_DIR;
 
+    @Option(shortName="T", doc="Directory for temporary files, needs write access.")
+    public File TEMP_DIR;
+
     @Option(shortName="B", doc="Illumina basecalls directory including config xml file, and filter files, bcl, maybe scl files under lane cycle directory, using BaseCalls directory under intensities if not given. ", optional=true)
     public File BASECALLS_DIR;
     
@@ -64,8 +67,11 @@ public class Illumina2bam extends Illumina2bamCommandLine {
     @Option(shortName="PF", doc="Filter cluster or not, default true.", optional=true)
     public boolean PF_FILTER = true;
 
-    @Option(shortName="RG", doc="ID used to link RG header record with RG tag in SAM record, default 1.", optional=true)
-    public String READ_GROUP_ID = "1";
+    @Option(shortName="RG", doc="ID used to link RG header record with RG tag in SAM record, default [Flow cell id].[Lane nr]", optional=true)
+    public String READ_GROUP_ID = null;
+
+    @Option(shortName="FCID", doc="Flow cell id, defaults to config from RunInfo.xml", optional=true)
+    public String FLOW_CELL_ID = null;
 
     @Option(shortName="SM", doc="The name of the sequenced sample, using library name if not given.", optional=true)
     public String SAMPLE_ALIAS;
@@ -105,7 +111,10 @@ public class Illumina2bam extends Illumina2bamCommandLine {
     
     //TODO: add command option to overwrite cycle range per read   
     
+    @Option(shortName="RI", doc="The read identifier string, overrides info from config.xml if added. Example: I5Y75N5I5Y75N5 = Paired end with two barcodes: Index1_5bp Read1_75bp Skip_5bp Index2_5bp Read2_75bp Skip_5bp", optional=true)
+    public String READ_IDENTIFIER;
 
+    
     @Override
     protected int doWork() {
 
@@ -117,13 +126,41 @@ public class Illumina2bam extends Illumina2bamCommandLine {
           log.info("BaseCalls directory not given, using " + this.BASECALLS_DIR);
         }
 
+        boolean useLaneSpecificConfig = false;
+        if (this.READ_IDENTIFIER != null) {
+            
+            //Use boolean for lane init later
+            useLaneSpecificConfig = true;
+            
+            //Create new config files named config_lane_XX.xml - they will be read by the lane
+            ModifyIlluminaConfig illuminaConfigModifier = new ModifyIlluminaConfig();
+            illuminaConfigModifier.READ_IDENTIFIER = this.READ_IDENTIFIER;
+            illuminaConfigModifier.KEEP_OLD_CONFIG = false;
+            illuminaConfigModifier.BASECALLS_DIR = this.BASECALLS_DIR;
+            illuminaConfigModifier.INTENSITY_DIR = this.INTENSITY_DIR;
+            illuminaConfigModifier.LANE = this.LANE;
+            illuminaConfigModifier.QUIET = this.QUIET;
+            illuminaConfigModifier.TEMP_DIR = this.TEMP_DIR;
+            int modifyConfigResult = illuminaConfigModifier.doWork();
+            
+            if (modifyConfigResult == 0) {
+                log.info("Finished modifying lane specific config files for lane " + this.LANE + ".");
+            } else {
+                log.error("Something went wrong when trying to modify the config xml files.");
+                return 1;
+            }
+            
+        }
+
         Lane lane = new Lane(this.INTENSITY_DIR.getAbsolutePath(),
                 this.BASECALLS_DIR.getAbsolutePath(),
+                this.TEMP_DIR.getAbsolutePath(),
                 this.LANE, this.GENERATE_SECONDARY_BASE_CALLS,
                 this.PF_FILTER,
                 OUTPUT,
                 this.BARCODE_SEQUENCE_TAG_NAME,
-                this.BARCODE_QUALITY_TAG_NAME);
+                this.BARCODE_QUALITY_TAG_NAME,
+                useLaneSpecificConfig);
 
         try {
             log.info("Reading config xml files");
@@ -136,15 +173,18 @@ public class Illumina2bam extends Illumina2bamCommandLine {
         log.info("Generating illumina2bam program record");
         lane.setIllumina2bamProgram(this.getThisProgramRecord(this.programName, this.programDS));
         
-        
         log.info("Generating read group record");
-        String runfolderConfig = lane.getRunfolderConfig();
+        //String runfolderConfig = lane.getRunfolderConfig();
         String platformUnitConfig = null;
-        if(runfolderConfig != null){
-            platformUnitConfig = runfolderConfig + "_" + this.LANE;
-        }        
+        String runInfoInstrument = lane.getRunInstrumentConfig();
+        if(runInfoInstrument != null){
+            platformUnitConfig = runInfoInstrument + "." + lane.getRunFlowCellId() + "." + this.LANE;
+        }
+        String runFolder = lane.getRunfolderConfig();
+        
+        String flowCellId = lane.getRunFlowCellId();
         Date runDateConfig   = lane.getRunDateConfig();        
-        lane.setReadGroup(this.generateSamReadGroupRecord(platformUnitConfig, runDateConfig));
+        lane.setReadGroup(this.generateSamReadGroupRecord(platformUnitConfig, runDateConfig, flowCellId, runFolder));
 
         if( this.FIRST_TILE != null ){
             log.info("Trying to limit the number tiles from " + this.FIRST_TILE);
@@ -176,11 +216,21 @@ public class Illumina2bam extends Illumina2bamCommandLine {
     /**
      * Generate read group record
      * 
-     * @param platformUnitConfig default platform unit from configure XML, which will be used if not given from command line, and could be null
-     * @param runDateConfig default run date from configure XML, which will be used if not given from command line, and could be null
+     * @param platformUnitConfig default platform unit from configuration XML, which will be used if not given from command line, and could be null
+     * @param runDateConfig default run date from configuration XML, which will be used if not given from command line, and could be null
+     * @param runFlowCellId default run flow cell id from configuration XML
      * @return read group record for BAM header
      */
-    public SAMReadGroupRecord generateSamReadGroupRecord(String platformUnitConfig, Date runDateConfig){
+    public SAMReadGroupRecord generateSamReadGroupRecord(String platformUnitConfig, Date runDateConfig, String runFlowCellId, String runFolder){
+        
+        if (this.READ_GROUP_ID == null) {
+            //Fetch Flow cell id from RunInfo.xml
+            if (this.FLOW_CELL_ID != null) {
+                this.READ_GROUP_ID = FLOW_CELL_ID + "." + this.LANE;
+            } else {
+                this.READ_GROUP_ID = runFlowCellId + "." + this.LANE;
+            }
+        }
         
         SAMReadGroupRecord readGroup = new SAMReadGroupRecord(this.READ_GROUP_ID);
         
@@ -208,6 +258,8 @@ public class Illumina2bam extends Illumina2bamCommandLine {
         }else if(runDateConfig != null){
             readGroup.setRunDate(runDateConfig);
         }
+        
+        readGroup.setAttribute("rf", runFolder);
                 
         readGroup.setPlatform(this.PLATFORM);
         

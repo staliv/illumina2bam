@@ -21,6 +21,7 @@ package illumina.file.reader;
 import java.io.EOFException;
 import java.io.IOException;
 import net.sf.picard.util.Log;
+import sun.tools.tree.UnsignedShiftRightExpression;
 
 /**
  *
@@ -95,7 +96,17 @@ public class ControlFileReader extends IlluminaFileReader {
             }
 
             this.currentCluster++;
-
+            /*
+            Bit0: always empty (0)
+            Bit1: was the read identified as a control?
+            Bit2: was the match ambiguous?
+            Bit3: did the read match the phiX tag?
+            Bit4: did the read align to match the phiX tag?
+            Bit5: did the read match the control index sequence? (specified in controls.fata, TGTCACA)
+            Bits6,7: reserved for future use
+            Bits8..15: the report key for the matched record in the controls.fasta file (specified by the REPOControl FilesRT_ KEY metadata)
+            */
+            nextByte = nextByte & 0x2;
             if (nextByte != 0) {
                 this.currentControlClusters++;
             }
@@ -132,25 +143,25 @@ public class ControlFileReader extends IlluminaFileReader {
 
     public static void main(String args[]) throws Exception {
 
-//        String controlFileName = "testdata/110323_HS13_06000_B_B039WABXX/Data/Intensities/BaseCalls/L001/s_1_1101.control";
-//        if(args.length > 0  && args[0] != null){
-//            controlFileName = args[0];
-//        }
-//
-//        ControlFileReader control = new ControlFileReader(controlFileName);
-//
-//        int numberControlCluster = 0;
-//        while (control.hasNext()) {
-//            int nextCluster = (Integer) control.next();
-//
-//            if (nextCluster != 0) {
-//                numberControlCluster++;
-//            }
-//        }
-//        System.out.println(numberControlCluster);
-//        System.out.println(control.getCurrentCluster());
-//        System.out.println(control.getCurrentControlClusters());
+        String controlFileName = "testdata/110323_HS13_06000_B_B039WABXX/Data/Intensities/BaseCalls/L001/s_1_1101.control";
+        if(args.length > 0  && args[0] != null){
+            controlFileName = args[0];
+        }
 
-//        control.next();
+        ControlFileReader control = new ControlFileReader(controlFileName);
+
+        int numberControlCluster = 0;
+        while (control.hasNext()) {
+            int nextCluster = (Integer) control.next();
+
+            if (nextCluster != 0) {
+                numberControlCluster++;
+            }
+        }
+        System.out.println(numberControlCluster);
+        System.out.println(control.getCurrentCluster());
+        System.out.println(control.getCurrentControlClusters());
+
+        //control.next();
     }
 }

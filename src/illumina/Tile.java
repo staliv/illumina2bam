@@ -22,6 +22,7 @@ import illumina.file.reader.FilterFileReader;
 import illumina.file.reader.CLocsFileReader;
 import illumina.file.reader.BCLFileReader;
 //import illumina.file.reader.ControlFileReader;
+import illumina.file.reader.ControlFileReader;
 import illumina.file.reader.SCLFileReader;
 import illumina.file.reader.IlluminaFileReader;
 import illumina.file.reader.PosFileReader;
@@ -74,7 +75,7 @@ public class Tile {
     private final String cLocsFileName;
     protected final String posFileName;
     private final String filterFileName;
-    //private final String controlFileName;
+    private final String controlFileName;
 
     //file reader list
     private final HashMap<String, BCLFileReader[]> bclFileReaderListByRead;
@@ -156,7 +157,7 @@ public class Tile {
                 + this.tileNameInFour + "_pos.txt";
 
         this.filterFileName = this.checkFilterFileName();
-        //this.controlFileName = this.checkControlFileName();
+        this.controlFileName = this.checkControlFileName();
     }
 
     /**
@@ -168,13 +169,13 @@ public class Tile {
         
         log.info("Open filter file: " + this.getFilterFileName());
         FilterFileReader filterFileReader = new FilterFileReader(this.getFilterFileName());
-//        ControlFileReader controlFileReader = null;
+        ControlFileReader controlFileReader = null;
         
-//        if (!(this.getControlFileName() == null)) {
-//            log.info("Open control file: " + this.getControlFileName());
-//            controlFileReader = new ControlFileReader(this.getControlFileName());
-//        }
-//        
+        if (!(this.getControlFileName() == null)) {
+            log.info("Open control file: " + this.getControlFileName());
+            controlFileReader = new ControlFileReader(this.getControlFileName());
+        }
+        
         File clocsFile = new File( this.getcLocsFileName() );
         File posFile = new File( this.getPosFileName() );
 
@@ -229,18 +230,18 @@ public class Tile {
             //filtered
             int filtered = (Integer) filterFileReader.next();
 
-//            //control
-//            short controlSampleId = 0;
-//            
-//            if (controlFileReader != null) {
-//                if (controlFileReader.hasNext()) {
-//                    controlSampleId = (Short) controlFileReader.next();
-//                } else {
-//                    throw new Exception("Number of clusters in control file "
-//                            + controlFileReader.getFileName()
-//                            + " is incorrect");
-//                }
-//            }
+            //control
+            int controlBit = 0;
+            
+            if (controlFileReader != null) {
+                if (controlFileReader.hasNext()) {
+                    controlBit = (Integer) controlFileReader.next();
+                } else {
+                    throw new Exception("Number of clusters in control file "
+                            + controlFileReader.getFileName()
+                            + " is incorrect");
+                }
+            }
 
             
             //read 1
@@ -283,13 +284,16 @@ public class Tile {
                 }
             }
 
+            //If matched as control -> mark as control
+            boolean isControl = (controlBit == 1);
 
             //write to bam
             if(!(this.pfFilter && filtered == 0)){
-                SAMRecord recordRead1 = this.getSAMRecord(samFileHeader, readName, clusterIndex, basesQuals1, secondBases1, basesQualsIndex1, filtered, pairedRead, true, barcodesMatch);
+                
+                SAMRecord recordRead1 = this.getSAMRecord(samFileHeader, readName, clusterIndex, basesQuals1, secondBases1, basesQualsIndex1, filtered, pairedRead, true, barcodesMatch, isControl);
                 this.writeToBam(outputSam, recordRead1);
                 if(this.pairedRead){
-                    SAMRecord recordRead2 = this.getSAMRecord(samFileHeader, readName, clusterIndex, basesQuals2, secondBases2, basesQualsIndex2, filtered, pairedRead, false, barcodesMatch);
+                    SAMRecord recordRead2 = this.getSAMRecord(samFileHeader, readName, clusterIndex, basesQuals2, secondBases2, basesQualsIndex2, filtered, pairedRead, false, barcodesMatch, isControl);
                     this.writeToBam(outputSam, recordRead2);
                 }
             }
@@ -305,13 +309,15 @@ public class Tile {
         log.debug("Correct number of clusters processed in filter file: " + filterFileReader.getCurrentCluster());
        
 
-        //check number of clusters from filter file match the cluster nubmer in clocs file
+        //check number of clusters from filter file match the cluster number in clocs file
         if (clocsFileReader != null && clocsFileReader.getCurrentTotalClusters() != totalClusterInTile) {
             throw new Exception("Number of clusters in clocs file does not match filter file "
                     + filterFileReader.getTotalClusters() + " "
                     + clocsFileReader.getCurrentTotalClusters());
         }
-      
+
+        //TODO: check number of clusters from control file match the cluster number in clocs file
+        
         int totalCurrentClusters = 0;
         if(clocsFileReader != null){
              totalCurrentClusters = clocsFileReader.getCurrentTotalClusters();
@@ -326,12 +332,15 @@ public class Tile {
 
         log.info(filterFileReader.getCurrentPFClusters() + " PF clusters in this tile out of total " + totalClusterInTile);
 
-        //close clocs or pos,  and filter file
+        //close clocs or pos, control, and filter file
         if(clocsFileReader != null){
             clocsFileReader.close();
         }
         if(posFileReader != null){
             posFileReader.close();
+        }
+        if (controlFileReader != null) {
+            controlFileReader.close();
         }
         filterFileReader.close();
     }
@@ -583,7 +592,8 @@ public class Tile {
             int filter,
             boolean paired,
             boolean firstRead,
-            boolean barcodesMatch) {
+            boolean barcodesMatch,
+            boolean isControl) {
 
         SAMRecord samRecord = new SAMRecord(fileHeader);
 
@@ -635,6 +645,11 @@ public class Tile {
         //Set tag on first read indicating that the barcodes/indexes do not match
         if (firstRead && !barcodesMatch) {
             samRecord.setAttribute("XB", 1);
+        }
+
+        //Set tag on first read indicating that the read is a control
+        if (firstRead && isControl) {
+            samRecord.setAttribute("XC", 1);
         }
         
         return samRecord;
@@ -807,9 +822,9 @@ public class Tile {
         return posFileName;
     }
 
-//    private String getControlFileName() {
-//        return this.controlFileName;
-//    }
+    private String getControlFileName() {
+        return this.controlFileName;
+    }
 
     private String checkControlFileName() {
         String controlFileNameLocal = this.baseCallDir
@@ -823,7 +838,7 @@ public class Tile {
             log.info("Control file " + controlFileNameLocal + " not in the basecall lane directory");
             controlFileNameLocal = this.baseCallDir
                 + File.separator
-                + this.tileNameInFour + ".filter";
+                + this.tileNameInFour + ".control";
             log.info("Now trying base call directory for the control file: " + controlFileNameLocal);
         }
         controlFile = new File(controlFileNameLocal);

@@ -25,6 +25,8 @@
 *.log
 *.sql
 *.sqlite
+build/
+nbproject/private/
 
 # OS generated files #
 ######################

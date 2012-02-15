@@ -280,7 +280,7 @@ public class BamMerger extends Illumina2bamCommandLine {
                     }
                     
                     //Trim the end bases
-                    record.setReadString(record.getReadString().substring(record.getReadString().length() - lastElement.getLength()));
+                    record.setReadString(record.getReadString().substring(0, record.getReadString().length() - lastElement.getLength()));
                 }
 
             }

@@ -265,6 +265,14 @@ public class BamMerger extends Illumina2bamCommandLine {
 
                     //Trim the first bases
                     record.setReadString(record.getReadString().substring(firstElement.getLength()));
+                    
+                    //Trim the base qualities when we´re at it
+                    record.setBaseQualityString(record.getBaseQualityString().substring(firstElement.getLength()));
+
+                    //Trim the base qualities off of the OQ (Original quality) if it exists
+                    if (record.getStringAttribute("OQ") != null) {
+                        record.setAttribute("OQ", record.getStringAttribute("OQ").substring(firstElement.getLength()));
+                    }
 
                 }
 
@@ -281,6 +289,15 @@ public class BamMerger extends Illumina2bamCommandLine {
                     
                     //Trim the end bases
                     record.setReadString(record.getReadString().substring(0, record.getReadString().length() - lastElement.getLength()));
+
+                    //Trim base qualities all the same
+                    record.setBaseQualityString(record.getBaseQualityString().substring(0, record.getBaseQualityString().length() - lastElement.getLength()));
+
+                    //Trim the base qualities off of the OQ (Original quality) if it exists
+                    if (record.getStringAttribute("OQ") != null) {
+                        record.setAttribute("OQ", record.getStringAttribute("OQ").substring(0, record.getStringAttribute("OQ").length() - lastElement.getLength()));
+                    }
+
                 }
 
             }
@@ -294,7 +311,7 @@ public class BamMerger extends Illumina2bamCommandLine {
         if(this.REPLACE_ALIGNED_BASE_QUALITY){
             alignment.setBaseQualities(record.getBaseQualities());
         }else if (this.KEEP_ALIGNED_BASE_QUALITY) {
-            //Do nothin
+            //Do nothing
         }else if( ! Arrays.equals( alignment.getBaseQualities(), record.getBaseQualities() ) ){
             throw new RuntimeException( "Qualities are different for read " + record.getReadName() );
         }

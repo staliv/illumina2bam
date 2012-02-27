@@ -449,6 +449,8 @@ public class IndexDecoder {
                         && !columnName.equals(INSERT_SIZE_COLUMN)
                         && !columnName.equals(SEQUENCING_CENTER_COLUMN)
                         && (!"".equals(row.getField(columnName)))
+                        && (row.getField(columnName) != null)
+                        && !"[empty]".equals(row.getField(columnName))
                         ) {
                     endUserTags.put(columnName.substring(0, 2).toLowerCase(), row.getField(columnName));
                 }

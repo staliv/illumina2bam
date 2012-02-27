@@ -290,6 +290,7 @@ public class BamIndexDecoder extends Illumina2bamCommandLine {
             
 
             for(SAMReadGroupRecord r : oldReadGroupList){
+                    
                     SAMReadGroupRecord newReadGroupRecord = new SAMReadGroupRecord(r.getId() + "." + barcode, r);
                     String pu = newReadGroupRecord.getPlatformUnit();
 
@@ -328,7 +329,7 @@ public class BamIndexDecoder extends Illumina2bamCommandLine {
                         if (namedBarcode.endUserTags != null && !(namedBarcode.endUserTags == null) && !namedBarcode.endUserTags.isEmpty()) {
                             for (final String tagName : namedBarcode.endUserTags.keySet()) {
                                 final String tagValue = namedBarcode.endUserTags.get(tagName);
-                                if (!tagValue.equals("")) {
+                                if (tagValue != null && !tagValue.equals("")) {
                                     newReadGroupRecord.setAttribute(tagName, tagValue);
                                 }
                             }

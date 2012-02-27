@@ -448,11 +448,11 @@ public class IndexDecoder {
                         && !columnName.equals(LANE_COLUMN)
                         && !columnName.equals(INSERT_SIZE_COLUMN)
                         && !columnName.equals(SEQUENCING_CENTER_COLUMN)
+                        && (!"".equals(row.getField(columnName)))
                         ) {
                     endUserTags.put(columnName.substring(0, 2).toLowerCase(), row.getField(columnName));
                 }
             }
-            
             NamedBarcode namedBarcode = new NamedBarcode(barcode, barcodeName, libraryName, sampleName, description, flowCellId, lane, sequencingCenter, insertSize, project, endUserTags);
             namedBarcodeList.add(namedBarcode);
         }

@@ -252,6 +252,8 @@ public class BamMerger extends Illumina2bamCommandLine {
 
             //Check hard clipping and remove from bases before comparing readbases again
             Cigar cigar = alignment.getCigar();
+            int beginsWithHardClipping = 0;
+            int endsWithHardClipping = 0;
             
             if (cigar.numCigarElements() > 0) {
 
@@ -259,51 +261,62 @@ public class BamMerger extends Illumina2bamCommandLine {
                 CigarElement lastElement = cigar.getCigarElement(cigar.numCigarElements() - 1);
                 
                 if (firstElement.getOperator() == CigarOperator.HARD_CLIP || lastElement.getOperator() == CigarOperator.HARD_CLIP) {
-                    boolean beginsWithHardClipping = false;
                     if (firstElement.getOperator() == CigarOperator.HARD_CLIP) {
-
-                        //Remove n bases from record and add to XH tag to aligned read
-                        beginsWithHardClipping = true;
-                        String hardClippedBeginning = record.getReadString().substring(0, firstElement.getLength());
-                        alignment.setAttribute("XH", hardClippedBeginning);
-
-                        //Trim the first bases
-                        record.setReadString(record.getReadString().substring(firstElement.getLength()));
-
-                        //Trim the base qualities when we´re at it
-                        record.setBaseQualityString(record.getBaseQualityString().substring(firstElement.getLength()));
-
-                        //Trim the base qualities off of the OQ (Original quality) if it exists
-                        if (record.getStringAttribute("OQ") != null) {
-                            record.setAttribute("OQ", record.getStringAttribute("OQ").substring(firstElement.getLength()));
-                        }
-
+                        beginsWithHardClipping = firstElement.getLength();
                     }
 
                     if (lastElement.getOperator() == CigarOperator.HARD_CLIP) {
-
-                        //Remove n bases from record and add to XH tag to aligned read
-                        String hardClippedEnding = record.getReadString();
-                        hardClippedEnding = hardClippedEnding.substring(hardClippedEnding.length() - lastElement.getLength());
-                        if (beginsWithHardClipping) {
-                            alignment.setAttribute("XH", alignment.getAttribute("XH") + "," + hardClippedEnding);
-                        } else {
-                            alignment.setAttribute("XH", hardClippedEnding);
-                        }
-
-                        //Trim the end bases
-                        record.setReadString(record.getReadString().substring(0, record.getReadString().length() - lastElement.getLength()));
-
-                        //Trim base qualities all the same
-                        record.setBaseQualityString(record.getBaseQualityString().substring(0, record.getBaseQualityString().length() - lastElement.getLength()));
-
-                        //Trim the base qualities off of the OQ (Original quality) if it exists
-                        if (record.getStringAttribute("OQ") != null) {
-                            record.setAttribute("OQ", record.getStringAttribute("OQ").substring(0, record.getStringAttribute("OQ").length() - lastElement.getLength()));
-                        }
-
+                        endsWithHardClipping = lastElement.getLength();
                     }
                 }
+            } else if (record.getReadString().indexOf(alignment.getReadString()) > -1) {
+                //Maybe stuff was trimmed without adding a cigar?
+                String[] clipped = record.getReadString().split(alignment.getReadString());
+                beginsWithHardClipping = clipped[0].length();
+                endsWithHardClipping = clipped[1].length();
+            }
+            
+            if (beginsWithHardClipping > 0) {
+
+                //Remove n bases from record and add to XH tag to aligned read
+                String hardClippedBeginning = record.getReadString().substring(0, beginsWithHardClipping);
+                alignment.setAttribute("XH", hardClippedBeginning);
+
+                //Trim the first bases
+                record.setReadString(record.getReadString().substring(beginsWithHardClipping));
+
+                //Trim the base qualities when we´re at it
+                record.setBaseQualityString(record.getBaseQualityString().substring(beginsWithHardClipping));
+
+                //Trim the base qualities off of the OQ (Original quality) if it exists
+                if (record.getStringAttribute("OQ") != null) {
+                    record.setAttribute("OQ", record.getStringAttribute("OQ").substring(beginsWithHardClipping));
+                }
+                
+            }
+            
+            if (endsWithHardClipping > 0) {
+
+                //Remove n bases from record and add to XH tag to aligned read
+                String hardClippedEnding = record.getReadString();
+                hardClippedEnding = hardClippedEnding.substring(hardClippedEnding.length() - endsWithHardClipping);
+                if (beginsWithHardClipping > 0) {
+                    alignment.setAttribute("XH", alignment.getAttribute("XH") + "," + hardClippedEnding);
+                } else {
+                    alignment.setAttribute("XH", hardClippedEnding);
+                }
+
+                //Trim the end bases
+                record.setReadString(record.getReadString().substring(0, record.getReadString().length() - endsWithHardClipping));
+
+                //Trim base qualities all the same
+                record.setBaseQualityString(record.getBaseQualityString().substring(0, record.getBaseQualityString().length() - endsWithHardClipping));
+
+                //Trim the base qualities off of the OQ (Original quality) if it exists
+                if (record.getStringAttribute("OQ") != null) {
+                    record.setAttribute("OQ", record.getStringAttribute("OQ").substring(0, record.getStringAttribute("OQ").length() - endsWithHardClipping));
+                }
+                
             }
         }
 

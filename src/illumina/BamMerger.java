@@ -280,12 +280,13 @@ public class BamMerger extends Illumina2bamCommandLine {
 
                 //Remove n bases from record and add to XH tag to aligned read
                 String hardClippedBeginning = record.getReadString().substring(0, beginsWithHardClipping);
-                alignment.setAttribute("XH", hardClippedBeginning);
+                record.setAttribute("XH", hardClippedBeginning);
 
                 //Trim the first bases
                 record.setReadString(record.getReadString().substring(beginsWithHardClipping));
 
-                //Trim the base qualities when we´re at it
+                //Trim the base qualities when we´re at it and save them to XI
+                record.setAttribute("XI", record.getBaseQualityString().substring(0, beginsWithHardClipping));
                 record.setBaseQualityString(record.getBaseQualityString().substring(beginsWithHardClipping));
 
                 //Trim the base qualities off of the OQ (Original quality) if it exists
@@ -301,15 +302,20 @@ public class BamMerger extends Illumina2bamCommandLine {
                 String hardClippedEnding = record.getReadString();
                 hardClippedEnding = hardClippedEnding.substring(hardClippedEnding.length() - endsWithHardClipping);
                 if (beginsWithHardClipping > 0) {
-                    alignment.setAttribute("XH", alignment.getAttribute("XH") + "," + hardClippedEnding);
+                    record.setAttribute("XH", record.getAttribute("XH") + "," + hardClippedEnding);
                 } else {
-                    alignment.setAttribute("XH", hardClippedEnding);
+                    record.setAttribute("XH", hardClippedEnding);
                 }
 
                 //Trim the end bases
                 record.setReadString(record.getReadString().substring(0, record.getReadString().length() - endsWithHardClipping));
 
-                //Trim base qualities all the same
+                //Trim base qualities all the same and save to XI
+                if (beginsWithHardClipping > 0) {
+                    record.setAttribute("XI", record.getAttribute("XI") + "," + record.getBaseQualityString().substring(record.getBaseQualityString().length() - endsWithHardClipping));
+                } else {
+                    record.setAttribute("XI", record.getBaseQualityString().substring(record.getBaseQualityString().length() - endsWithHardClipping));
+                }
                 record.setBaseQualityString(record.getBaseQualityString().substring(0, record.getBaseQualityString().length() - endsWithHardClipping));
 
                 //Trim the base qualities off of the OQ (Original quality) if it exists

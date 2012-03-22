@@ -32,8 +32,9 @@ import org.jdom.xpath.XPath;
 
 /**
  * Allows you to control how the reads are setup in your config.xml files.
- * READ_IDENTIFIER can include values for I, Y and N. Example I4Y73N5:
+ * READ_IDENTIFIER can include values for I, J, Y and N. Example I4J1Y73N5:
  * I4 = Index 4 bp
+ * J1 = Include 1 bp in index but do not use for Index Decoding - useful when a cycle goes bad
  * Y73 = Read 73 bp
  * N5 = Skip 5 bp
  * Example for paired end reads with double index/barcode: I4Y73N5I4Y73N5
@@ -59,7 +60,7 @@ public class ModifyIlluminaConfig extends Illumina2bamCommandLine {
     @Option(shortName="B", doc="The BaseCalls directory, using BaseCalls directory under intensities if not given.", optional=true)
     public File BASECALLS_DIR;
 
-    @Option(shortName="RI", doc="The read identifier string, example: I5Y75N5I5Y75N5 = Paired end with two barcodes: Index1_5bp Read1_75bp Skip_5bp Index2_5bp Read2_75bp Skip_5bp")
+    @Option(shortName="RI", doc="The read identifier string, example: I4J1Y75N5I5Y75N5 = Paired end with two barcodes: Index1_5bp where last base is deemed unsuitable Read1_75bp Skip_5bp Index2_5bp Read2_75bp Skip_5bp")
     public String READ_IDENTIFIER;
     
     @Option(shortName="KEEP", doc="Keep old renamed config.xml files, defaults to true", optional=true)
@@ -295,16 +296,52 @@ public class ModifyIlluminaConfig extends Illumina2bamCommandLine {
         int basePairs = 0;
         
         readIdentifier = readIdentifier.toUpperCase();
+        boolean hasCreatedNewBarcode = false;
+        ArrayList<Integer> barcode;
         
         for (int i = 0; i < readIdentifier.length(); i++) {
             char character = readIdentifier.charAt(i);
             switch (character) {
-                case 'I':
-                    //Create new barcode
-                    ArrayList<Integer> barcode = new ArrayList<Integer>();
+                case 'J':
+                    if (hasCreatedNewBarcode) {
+                        //Fetch last barcode
+                        barcode = barcodes.get(barcodes.size() - 1);
+                        //Remove last end position
+                        barcode.remove(barcode.size() - 1);
+                        //Remove from container lists
+                        barcodes.remove(barcodes.size() - 1);
+                        reads.remove(reads.size() - 1);
+                    } else {
+                        //Create new barcode
+                        barcode = new ArrayList<Integer>();
+                        barcode.add(currentPosition);
+                        hasCreatedNewBarcode = true;
+                    }
                     //Determine length of index
                     basePairs = getNextNumber(readIdentifier, i + 1);
-                    barcode.add(currentPosition);
+                    currentPosition = currentPosition + basePairs;
+                    barcode.add(currentPosition - 1);
+                    //Add barcode to reads and barcodes
+                    barcodes.add(barcode);
+                    reads.add(barcode);
+                    break;
+                case 'I':
+                    if (hasCreatedNewBarcode) {
+                        //Fetch last barcode
+                        barcode = barcodes.get(barcodes.size() - 1);
+                        //Remove last end position
+                        barcode.remove(barcode.size() - 1);
+                        //Remove from container lists
+                        barcodes.remove(barcodes.size() - 1);
+                        reads.remove(reads.size() - 1);
+                    } else {
+                        //Create new barcode
+                        barcode = new ArrayList<Integer>();
+                        barcode.add(currentPosition);
+                        hasCreatedNewBarcode = true;
+                    }
+                    //Determine length of index
+                    basePairs = getNextNumber(readIdentifier, i + 1);
                     currentPosition = currentPosition + basePairs;
                     barcode.add(currentPosition - 1);
                     //Add barcode to reads and barcodes
@@ -312,6 +349,7 @@ public class ModifyIlluminaConfig extends Illumina2bamCommandLine {
                     reads.add(barcode);
                     break;
                 case 'Y':
+                    hasCreatedNewBarcode = false;
                     //Create new read
                     ArrayList<Integer> read = new ArrayList<Integer>();
                     //Determine length of index
@@ -322,6 +360,7 @@ public class ModifyIlluminaConfig extends Illumina2bamCommandLine {
                     reads.add(read);
                     break;
                 case 'N':
+                    hasCreatedNewBarcode = false;
                     basePairs = getNextNumber(readIdentifier, i + 1);
                     currentPosition = currentPosition + basePairs;
                     break;

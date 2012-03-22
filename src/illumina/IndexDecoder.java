@@ -246,25 +246,47 @@ public class IndexDecoder {
 
     }
 
+    public static String removeCharAt(String s, int pos) {
+       StringBuilder buf = new StringBuilder( s.length() - 1 );
+       buf.append(s.substring(0,pos) ).append( s.substring(pos+1) );
+       return buf.toString();
+    }
+    
     /**
      * Find the best barcode match for the given read sequence, and accumulate metrics
      * @param readSubsequence portion of read containing barcode
      * @param passingFilter PF flag for the current read
      * @return perfect barcode string, if there was a match within tolerance, or null if not.
      */
-    private BarcodeMatch findBestBarcode(final String readSubsequence, final boolean passingFilter) {
+    private BarcodeMatch findBestBarcode(String readSubsequence, final boolean passingFilter) {
+
         BarcodeMetric bestBarcodeMetric = null;
         int numMismatchesInBestBarcode = readSubsequence.length();
         int numMismatchesInSecondBestBarcode = readSubsequence.length();
 
-        final byte[] readBytes = net.sf.samtools.util.StringUtil.stringToBytes(readSubsequence);
-        int numNoCalls = 0;
-        for (final byte b : readBytes) if (SequenceUtil.isNoCall(b)) ++numNoCalls;
-
+        byte[] readBytes = net.sf.samtools.util.StringUtil.stringToBytes(readSubsequence);
+        int numNoCalls = -1;
 
         for (final BarcodeMetric barcodeMetric : barcodeMetrics) {
+
+            String maskedSequence = readSubsequence;
+
+            //Mask the sequence before comparing if the barcode has joker chars
+            if (barcodeMetric.jokerPositions.length > 0) {
+                for (int i = barcodeMetric.jokerPositions.length - 1; i >= 0; i--){
+                    maskedSequence = removeCharAt(maskedSequence, barcodeMetric.jokerPositions[i]);
+                }
+                readBytes = net.sf.samtools.util.StringUtil.stringToBytes(maskedSequence);
+            }
+
+            if (numNoCalls == -1) {
+                numNoCalls = 0;
+                for (final byte b : readBytes) if (SequenceUtil.isNoCall(b)) ++numNoCalls;
+            }
             
-            final int numMismatches = countMismatches(barcodeMetric.barcodeBytes, readBytes);
+            //log.info(maskedSequence);
+            //log.info(barcodeMetric.CLEANED_BARCODE);
+            final int numMismatches = countMismatches(barcodeMetric.cleanedBarcodeBytes, readBytes);
             if (numMismatches < numMismatchesInBestBarcode) {
                 if (bestBarcodeMetric != null) {
                     numMismatchesInSecondBestBarcode = numMismatchesInBestBarcode;
@@ -281,6 +303,11 @@ public class IndexDecoder {
                 numMismatchesInBestBarcode <= this.maxMismatches &&
                 numMismatchesInSecondBestBarcode - numMismatchesInBestBarcode >= this.minMismatchDelta;
 
+//        log.info("matched: " + matched);
+//        log.info("numNoCalls: " + numNoCalls);
+//        log.info("numMismatchesInBestBarcode: " + numMismatchesInBestBarcode);
+//        log.info("");
+        
         final BarcodeMatch match = new BarcodeMatch();
 
         if (numNoCalls + numMismatchesInBestBarcode < readSubsequence.length()) {
@@ -575,12 +602,16 @@ public class IndexDecoder {
      * the basecalls directory and determine to which barcode each read should be assigned.
      */
     public static class BarcodeMetric extends MetricBase {
+
+        private final Log log = Log.getInstance(ExtractIlluminaBarcodes.class);
+
         /**
          * The barcode (from the set of expected barcodes) for which the following metrics apply.
          * Note that the "symbolic" barcode of NNNNNN is used to report metrics for all reads that
          * do not match a barcode.
          */
         public String BARCODE;
+        public String CLEANED_BARCODE;
         public String BARCODE_NAME = "";
         public String LIBRARY_NAME = "";
         public String SAMPLE_NAME = "";
@@ -624,14 +655,27 @@ public class IndexDecoder {
         public double PF_NORMALIZED_MATCHES;
 
         protected final byte[] barcodeBytes;
+        protected final byte[] cleanedBarcodeBytes;
+        protected int[] jokerPositions;
 
         public BarcodeMetric(final NamedBarcode namedBarcode) {
             this.BARCODE = namedBarcode.barcode;
+            this.CLEANED_BARCODE = namedBarcode.barcode.replaceAll("J", "");
             this.BARCODE_NAME = namedBarcode.barcodeName;
             this.LIBRARY_NAME = namedBarcode.libraryName;
             this.SAMPLE_NAME  = namedBarcode.sampleName;
             this.DESCRIPTION  = namedBarcode.description;
             this.barcodeBytes = net.sf.samtools.util.StringUtil.stringToBytes(this.BARCODE);
+            this.cleanedBarcodeBytes = net.sf.samtools.util.StringUtil.stringToBytes(this.CLEANED_BARCODE);
+            this.jokerPositions = new int[this.BARCODE.length() - this.CLEANED_BARCODE.length()];
+            int counter = 0;
+            for (int i = 0; i < this.BARCODE.length(); i++) {
+                if (this.BARCODE.charAt(i) == 'J') {
+                    //log.info("Adding joker position at char " + i + " to index " + counter);
+                    this.jokerPositions[counter] = i;
+                    counter++;
+                }
+            }
         }
 
         /**
@@ -639,6 +683,7 @@ public class IndexDecoder {
          */
         public BarcodeMetric() {
             barcodeBytes = null;
+            cleanedBarcodeBytes = null;
         }
     }
 }

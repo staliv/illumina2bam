@@ -256,6 +256,7 @@ public class Tile {
             //index read
             byte [][] basesQualsIndex1 = null;
             byte [][] basesQualsIndex2 = null;
+            byte [][] combinedBasesQualsIndex = null;
 
             if(this.isIndexed()){
                 //TODO: Make generic in terms of how many readIndexes exist
@@ -265,6 +266,22 @@ public class Tile {
                 if (this.cycleRangeByRead.containsKey("readIndex2")) {
                     basesQualsIndex2 = this.getNextClusterBaseQuals("readIndex2");
 
+                    byte[] combinedBases = new byte[basesQualsIndex1[0].length + basesQualsIndex2[0].length];
+
+                    System.arraycopy(basesQualsIndex1[0], 0, combinedBases, 0, basesQualsIndex1[0].length);
+                    System.arraycopy(basesQualsIndex2[0], 0, combinedBases, basesQualsIndex1[0].length, basesQualsIndex2[0].length);
+                    
+                    byte[] combinedQuals = new byte[basesQualsIndex1[1].length + basesQualsIndex2[1].length];
+
+                    System.arraycopy(basesQualsIndex1[1], 0, combinedQuals, 0, basesQualsIndex1[1].length);
+                    System.arraycopy(basesQualsIndex2[1], 0, combinedQuals, basesQualsIndex1[1].length, basesQualsIndex2[1].length);
+
+                    combinedBasesQualsIndex = new byte[2][combinedBases.length];
+                    combinedBasesQualsIndex[0] = combinedBases;
+                    combinedBasesQualsIndex[1] = combinedQuals;
+                    //Set the first barcode to be the combination of the two
+                    basesQualsIndex1 = combinedBasesQualsIndex;
+                    
                     if (!this.convertByteArrayToString(basesQualsIndex1[0]).equals(this.convertByteArrayToString(basesQualsIndex2[0]))) {
                         //log.info("Indexes differ, not saving: " + this.convertByteArrayToString(basesQualsIndex1[0]) + " != " + this.convertByteArrayToString(basesQualsIndex2[0]));
                         barcodesMatch = false;
@@ -293,7 +310,7 @@ public class Tile {
                 SAMRecord recordRead1 = this.getSAMRecord(samFileHeader, readName, clusterIndex, basesQuals1, secondBases1, basesQualsIndex1, filtered, pairedRead, true, barcodesMatch, isControl);
                 this.writeToBam(outputSam, recordRead1);
                 if(this.pairedRead){
-                    SAMRecord recordRead2 = this.getSAMRecord(samFileHeader, readName, clusterIndex, basesQuals2, secondBases2, basesQualsIndex2, filtered, pairedRead, false, barcodesMatch, isControl);
+                    SAMRecord recordRead2 = this.getSAMRecord(samFileHeader, readName, clusterIndex, basesQuals2, secondBases2, null, filtered, pairedRead, false, barcodesMatch, isControl);
                     this.writeToBam(outputSam, recordRead2);
                 }
             }

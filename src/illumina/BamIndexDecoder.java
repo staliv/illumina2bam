@@ -103,6 +103,9 @@ public class BamIndexDecoder extends Illumina2bamCommandLine {
     @Option(doc="Maximum allowable number of no-calls in a barcode read before it is considered unmatchable.")
     public int MAX_NO_CALLS = 2;
 
+    @Option(doc="Skip output of reads with undetermined barcodes. ")
+    public boolean SKIP_UNDETERMINED = false;
+
     private int barcodeLength;
     
     private IndexDecoder indexDecoder;
@@ -216,18 +219,22 @@ public class BamIndexDecoder extends Illumina2bamCommandLine {
                 }
             } else if (isFiltered) {
 
-                SAMFileWriter filterOut = (OUTPUT != null) ? this.filterOut : this.outputFilterList.get(barcode);
+                if (!(this.SKIP_UNDETERMINED && "undetermined".equals(barcode))) {
+                    SAMFileWriter filteredOut = (OUTPUT != null) ? this.filterOut : this.outputFilterList.get(barcode);
 
-                filterOut.addAlignment(record);
-                if(isPaired){
-                    filterOut.addAlignment(pairedRecord);
+                    filteredOut.addAlignment(record);
+                    if(isPaired){
+                        filteredOut.addAlignment(pairedRecord);
+                    }
                 }
             } else {
-                SAMFileWriter currentOut = (OUTPUT != null) ? this.out : this.outputList.get(barcode);
+                if (!(this.SKIP_UNDETERMINED && "undetermined".equals(barcode))) {
+                    SAMFileWriter currentOut = (OUTPUT != null) ? this.out : this.outputList.get(barcode);
 
-                currentOut.addAlignment(record);
-                if(isPaired){
-                    currentOut.addAlignment(pairedRecord);
+                    currentOut.addAlignment(record);
+                    if(isPaired){
+                        currentOut.addAlignment(pairedRecord);
+                    }
                 }
             }
             
@@ -385,9 +392,11 @@ public class BamIndexDecoder extends Illumina2bamCommandLine {
                 final SAMFileHeader outputHeader = header.clone();
                 outputHeader.setReadGroups(readGroupList);
                 this.addProgramRecordToHead(outputHeader, this.getThisProgramRecord(programName, programDS));
-                final SAMFileWriter outPerBarcode = new SAMFileWriterFactory().makeSAMOrBAMWriter(outputHeader, true, new File(barcodeBamOutputName));
-                outputList.put(barcode, outPerBarcode);
-
+                if (!(this.SKIP_UNDETERMINED && "Undetermined".equals(namedBarcode.project))) {
+                    final SAMFileWriter outPerBarcode = new SAMFileWriterFactory().makeSAMOrBAMWriter(outputHeader, true, new File(barcodeBamOutputName));
+                    outputList.put(barcode, outPerBarcode);
+                }
+                    
                 //Library_FCID_Lane_Index_non_pf.bam (for reads that don't pass the filter)
                 String barcodeFilterBamOutputName = OUTPUT_DIR
                         + File.separator
@@ -422,9 +431,10 @@ public class BamIndexDecoder extends Illumina2bamCommandLine {
                         + OUTPUT_FORMAT;                    
                 }
                 
-                
-                final SAMFileWriter outPerFilterBarcode = new SAMFileWriterFactory().makeSAMOrBAMWriter(outputHeader, true, new File(barcodeFilterBamOutputName));
-                outputFilterList.put(barcode, outPerFilterBarcode);
+                if (!(this.SKIP_UNDETERMINED && "Undetermined".equals(namedBarcode.project))) {
+                    final SAMFileWriter outPerFilterBarcode = new SAMFileWriterFactory().makeSAMOrBAMWriter(outputHeader, true, new File(barcodeFilterBamOutputName));
+                    outputFilterList.put(barcode, outPerFilterBarcode);
+                }
 
             }
             barcodeNameList.put(barcode, barcodeName);

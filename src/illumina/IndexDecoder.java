@@ -553,16 +553,16 @@ public class IndexDecoder {
 
         public NamedBarcode(String barcode, String barcodeName, String libraryName, String sampleName, String description, String flowCellId, String lane, String sequencingCenter, int insertSize, String project, HashMap<String, String> endUserTags) {
             this.barcode = barcode;
-            this.barcodeName = barcodeName;
-            this.libraryName = libraryName;
-            this.sampleName = sampleName;
-            this.description = description;
-            this.flowCellId = flowCellId;
-            this.lane = lane;
-            this.sequencingCenter = sequencingCenter;
+            this.barcodeName = ("[empty]".equals(barcodeName)) ? "" : barcodeName;
+            this.libraryName = ("[empty]".equals(libraryName)) ? "" : libraryName;
+            this.sampleName = ("[empty]".equals(sampleName)) ? "" : sampleName;
+            this.description = ("[empty]".equals(description)) ? "" : description;
+            this.flowCellId = ("[empty]".equals(flowCellId)) ? "" : flowCellId;
+            this.lane = ("[empty]".equals(lane)) ? "" : lane;
+            this.sequencingCenter = ("[empty]".equals(sequencingCenter)) ? "" : sequencingCenter;
             this.insertSize = insertSize;
             this.endUserTags = endUserTags;
-            this.project = project;
+            this.project = ("[empty]".equals(project)) ? "Undetermined" : project;
         }
 
         public NamedBarcode(String barcode) {

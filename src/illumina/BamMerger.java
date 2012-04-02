@@ -271,9 +271,18 @@ public class BamMerger extends Illumina2bamCommandLine {
                 }
             } else if (record.getReadString().indexOf(alignment.getReadString()) > -1) {
                 //Maybe stuff was trimmed without adding a cigar?
-                String[] clipped = record.getReadString().split(alignment.getReadString());
-                beginsWithHardClipping = clipped[0].length();
-                endsWithHardClipping = clipped[1].length();
+                String[] clipped;
+
+                if (isNegativeStrand1) {
+                    clipped = record.getReadString().split(alignment.getReadString());
+                    endsWithHardClipping = clipped[clipped.length - 1].length();
+                    beginsWithHardClipping = record.getReadString().lastIndexOf(alignment.getReadString());
+                } else {
+                    clipped = record.getReadString().split(alignment.getReadString(), 2);
+                    beginsWithHardClipping = clipped[0].length();
+                    endsWithHardClipping = clipped[1].length();
+                }
+                
             }
             
             if (beginsWithHardClipping > 0) {

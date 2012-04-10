@@ -146,6 +146,7 @@ public class IndexDecoder {
         if ("".equals(barcodeRead)) {
             match = new BarcodeMatch();
             match.barcode = "";
+            match.originalBarcode = "";
             match.matched = true;
             match.mismatches = 0;
             match.mismatchesToSecondBest = 0;
@@ -314,11 +315,13 @@ public class IndexDecoder {
             match.mismatches = numMismatchesInBestBarcode;
             match.mismatchesToSecondBest = numMismatchesInSecondBestBarcode;
             match.barcode = bestBarcodeMetric.BARCODE.toLowerCase();
+            match.originalBarcode = bestBarcodeMetric.ORIGINAL_BARCODE.toLowerCase();
         }
         else {
             match.mismatches = readSubsequence.length();
             match.mismatchesToSecondBest = readSubsequence.length();
             match.barcode = "";
+            match.originalBarcode = "";
         }
 
         if (matched) {
@@ -397,6 +400,7 @@ public class IndexDecoder {
 
 
     private static final String BARCODE_SEQUENCE_COLUMN = "barcode_sequence";
+    private static final String ORIGINAL_BARCODE_SEQUENCE_COLUMN = "original_barcode_sequence";
     private static final String BARCODE_NAME_COLUMN = "barcode_name";
     private static final String LIBRARY_NAME_COLUMN = "library_name";
     private static final String SAMPLE_NAME_COLUMN = "sample_name";
@@ -424,6 +428,7 @@ public class IndexDecoder {
             return null;
         }
         
+        boolean hasOriginalBarcodeSequence = barcodesParser.hasColumn(ORIGINAL_BARCODE_SEQUENCE_COLUMN);
         boolean hasBarcodeName = barcodesParser.hasColumn(BARCODE_NAME_COLUMN);
         boolean hasLibraryName = barcodesParser.hasColumn(LIBRARY_NAME_COLUMN);
         boolean hasSampleName = barcodesParser.hasColumn(SAMPLE_NAME_COLUMN);
@@ -451,6 +456,7 @@ public class IndexDecoder {
                 messages.add("Barcode " + barcode + " specified more than once in " + barcodeFile );
             }
             barcodes.add(barcode);
+            final String originalBarcode = (hasOriginalBarcodeSequence? row.getField(ORIGINAL_BARCODE_SEQUENCE_COLUMN): "");
             final String barcodeName = (hasBarcodeName? row.getField(BARCODE_NAME_COLUMN): "");
             final String libraryName = (hasLibraryName? row.getField(LIBRARY_NAME_COLUMN): "");
             final String sampleName = (hasSampleName? row.getField(SAMPLE_NAME_COLUMN): "");
@@ -467,6 +473,7 @@ public class IndexDecoder {
             for (final String columnName : columnNames) {
                 if (columnName.contains(":")
                         && !columnName.equals(BARCODE_SEQUENCE_COLUMN) 
+                        && !columnName.equals(ORIGINAL_BARCODE_SEQUENCE_COLUMN) 
                         && !columnName.equals(BARCODE_NAME_COLUMN)
                         && !columnName.equals(LIBRARY_NAME_COLUMN)
                         && !columnName.equals(SAMPLE_NAME_COLUMN)
@@ -482,7 +489,7 @@ public class IndexDecoder {
                     endUserTags.put(columnName.substring(0, 2).toLowerCase(), row.getField(columnName));
                 }
             }
-            NamedBarcode namedBarcode = new NamedBarcode(barcode, barcodeName, libraryName, sampleName, description, flowCellId, lane, sequencingCenter, insertSize, project, endUserTags);
+            NamedBarcode namedBarcode = new NamedBarcode(barcode, originalBarcode, barcodeName, libraryName, sampleName, description, flowCellId, lane, sequencingCenter, insertSize, project, endUserTags);
             namedBarcodeList.add(namedBarcode);
         }
 
@@ -530,6 +537,7 @@ public class IndexDecoder {
     public static class BarcodeMatch {
         boolean matched;
         String barcode;
+        String originalBarcode;
         int mismatches;
         int mismatchesToSecondBest;
     }
@@ -540,6 +548,7 @@ public class IndexDecoder {
  
     public static class NamedBarcode {
         public final String barcode;
+        public final String originalBarcode;
         public final String barcodeName;
         public final String libraryName;
         public final String sampleName;
@@ -551,8 +560,9 @@ public class IndexDecoder {
         public final String project;
         public HashMap<String, String> endUserTags;
 
-        public NamedBarcode(String barcode, String barcodeName, String libraryName, String sampleName, String description, String flowCellId, String lane, String sequencingCenter, int insertSize, String project, HashMap<String, String> endUserTags) {
+        public NamedBarcode(String barcode, String originalBarcode, String barcodeName, String libraryName, String sampleName, String description, String flowCellId, String lane, String sequencingCenter, int insertSize, String project, HashMap<String, String> endUserTags) {
             this.barcode = barcode;
+            this.originalBarcode = ("[empty]".equals(originalBarcode)) ? "" : originalBarcode;
             this.barcodeName = ("[empty]".equals(barcodeName)) ? "" : barcodeName;
             this.libraryName = ("[empty]".equals(libraryName)) ? "" : libraryName;
             this.sampleName = ("[empty]".equals(sampleName)) ? "" : sampleName;
@@ -567,6 +577,7 @@ public class IndexDecoder {
 
         public NamedBarcode(String barcode) {
             this.barcode = barcode;
+            this.originalBarcode = "";
             this.barcodeName = "";
             this.libraryName = "";
             this.sampleName  = "";
@@ -611,6 +622,7 @@ public class IndexDecoder {
          * do not match a barcode.
          */
         public String BARCODE;
+        public String ORIGINAL_BARCODE;
         public String CLEANED_BARCODE;
         public String BARCODE_NAME = "";
         public String LIBRARY_NAME = "";
@@ -660,6 +672,7 @@ public class IndexDecoder {
 
         public BarcodeMetric(final NamedBarcode namedBarcode) {
             this.BARCODE = namedBarcode.barcode;
+            this.ORIGINAL_BARCODE = namedBarcode.originalBarcode;
             this.CLEANED_BARCODE = namedBarcode.barcode.replaceAll("J", "");
             this.BARCODE_NAME = namedBarcode.barcodeName;
             this.LIBRARY_NAME = namedBarcode.libraryName;

@@ -1,3 +1,3 @@
-barcode_sequence	barcode_name	library_name	sample_name	description
-ATCACGTT	1	testlib1	testsample1	study1
-CGATGTTT	2	testlib2	testsample2	study2
+barcode_sequence	barcode_name	library_name	sample_name	description original_barcode_sequence
+ATCACGTT	1	testlib1	testsample1	study1	ATCACGTT
+CGATGTTT	2	testlib2	testsample2	study2	CGATGTTT

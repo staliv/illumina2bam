@@ -192,20 +192,23 @@ public class BamIndexDecoder extends Illumina2bamCommandLine {
 
             IndexDecoder.BarcodeMatch match = this.indexDecoder.extractBarcode(barcodeRead, isPf);
             String barcode = match.barcode;
+            String originalBarcode = match.originalBarcode;
             
             if( match.matched ) {
                barcode = barcode.toUpperCase();
+               originalBarcode = originalBarcode.toUpperCase();
             } else {
                barcode = "undetermined";
+               originalBarcode = "undetermined";
             }
             
 //            String barcodeName = this.barcodeNameList.get(barcode);
 
-            record.setReadName(readName + "." + barcode);
-            record.setAttribute("RG", record.getAttribute("RG") + "." + barcode);
+            record.setReadName(readName + "." + originalBarcode);
+            record.setAttribute("RG", record.getAttribute("RG") + "." + originalBarcode);
             if (isPaired) {
-                pairedRecord.setReadName(readName + "." + barcode);
-                pairedRecord.setAttribute("RG", pairedRecord.getAttribute("RG") + "." + barcode);
+                pairedRecord.setReadName(readName + "." + originalBarcode);
+                pairedRecord.setAttribute("RG", pairedRecord.getAttribute("RG") + "." + originalBarcode);
             }
             
             boolean isControl = (record.getAttribute("XC") != null);
@@ -277,6 +280,7 @@ public class BamIndexDecoder extends Illumina2bamCommandLine {
 
             String barcodeName = null;
             String barcode = null;
+            String originalBarcode = null;
             IndexDecoder.NamedBarcode namedBarcode = null;
             List<SAMReadGroupRecord> readGroupList = new ArrayList<SAMReadGroupRecord>();
 
@@ -285,64 +289,67 @@ public class BamIndexDecoder extends Illumina2bamCommandLine {
                 barcodeName = namedBarcode.barcodeName;
                 barcode = namedBarcode.barcode;
                 barcode = barcode.toUpperCase();
+
+                originalBarcode = namedBarcode.originalBarcode;
+                originalBarcode = originalBarcode.toUpperCase();
             }else{
                 namedBarcode = new IndexDecoder.NamedBarcode("undetermined");
                 barcode = "undetermined";
+                originalBarcode = "undetermined";
                 barcodeName = "undetermined";
             }
 
             if (barcodeName == null || barcodeName.equals("")) {
                 barcodeName = Integer.toString(count);
             }
-            
 
             for(SAMReadGroupRecord r : oldReadGroupList){
                     
-                    SAMReadGroupRecord newReadGroupRecord = new SAMReadGroupRecord(r.getId() + "." + barcode, r);
-                    String pu = newReadGroupRecord.getPlatformUnit();
+                SAMReadGroupRecord newReadGroupRecord = new SAMReadGroupRecord(r.getId() + "." + originalBarcode, r);
+                String pu = newReadGroupRecord.getPlatformUnit();
 
-                    //Fetch fcid and lane from ID tag of RG-header
-                    if (count == 0 && r.getId().contains(".")) {
-                        fcid = r.getId().split("\\.")[0];
-                        lane = r.getId().split("\\.")[1];
-                    }
-                    
-                    //Fetch runFolderId from rf-tag of RG-header
-                    if (count == 0 && r.getAttribute("rf") != null) {
-                        runFolder = r.getAttribute("rf");
-                        //Remove rf-tag from RG-header
-                        r.setAttribute("rf", null);
-                    }
-                    
-                    
-                    if(namedBarcode != null){
-                        if( namedBarcode.libraryName != null && !namedBarcode.libraryName.equals("") ){
-                           newReadGroupRecord.setLibrary(namedBarcode.libraryName);
-                        }
-                        if( namedBarcode.sampleName !=null && !namedBarcode.sampleName.equals("") ){
-                           newReadGroupRecord.setSample(namedBarcode.sampleName);
-                        }
-                        if(namedBarcode.description != null && !namedBarcode.description.equals("") ){
-                            newReadGroupRecord.setDescription(namedBarcode.description);
-                        }
-                        if(namedBarcode.insertSize > -1){
-                            newReadGroupRecord.setPredictedMedianInsertSize(namedBarcode.insertSize);
-                        }
-                        if(namedBarcode.sequencingCenter != null && !namedBarcode.sequencingCenter.equals("") ){
-                            newReadGroupRecord.setSequencingCenter(namedBarcode.sequencingCenter);
-                        }
+                //Fetch fcid and lane from ID tag of RG-header
+                if (count == 0 && r.getId().contains(".")) {
+                    fcid = r.getId().split("\\.")[0];
+                    lane = r.getId().split("\\.")[1];
+                }
 
-                        //Add possible endUserTags
-                        if (namedBarcode.endUserTags != null && !(namedBarcode.endUserTags == null) && !namedBarcode.endUserTags.isEmpty()) {
-                            for (final String tagName : namedBarcode.endUserTags.keySet()) {
-                                final String tagValue = namedBarcode.endUserTags.get(tagName);
-                                if (tagValue != null && !tagValue.equals("")) {
-                                    newReadGroupRecord.setAttribute(tagName, tagValue);
-                                }
+                //Fetch runFolderId from rf-tag of RG-header
+                if (count == 0 && r.getAttribute("rf") != null) {
+                    runFolder = r.getAttribute("rf");
+                    //Remove rf-tag from RG-header
+                    r.setAttribute("rf", null);
+                }
+
+
+                if(namedBarcode != null){
+                    if( namedBarcode.libraryName != null && !namedBarcode.libraryName.equals("") ){
+                       newReadGroupRecord.setLibrary(namedBarcode.libraryName);
+                    }
+                    if( namedBarcode.sampleName !=null && !namedBarcode.sampleName.equals("") ){
+                       newReadGroupRecord.setSample(namedBarcode.sampleName);
+                    }
+                    if(namedBarcode.description != null && !namedBarcode.description.equals("") ){
+                        newReadGroupRecord.setDescription(namedBarcode.description);
+                    }
+                    if(namedBarcode.insertSize > -1){
+                        newReadGroupRecord.setPredictedMedianInsertSize(namedBarcode.insertSize);
+                    }
+                    if(namedBarcode.sequencingCenter != null && !namedBarcode.sequencingCenter.equals("") ){
+                        newReadGroupRecord.setSequencingCenter(namedBarcode.sequencingCenter);
+                    }
+
+                    //Add possible endUserTags
+                    if (namedBarcode.endUserTags != null && !(namedBarcode.endUserTags == null) && !namedBarcode.endUserTags.isEmpty()) {
+                        for (final String tagName : namedBarcode.endUserTags.keySet()) {
+                            final String tagValue = namedBarcode.endUserTags.get(tagName);
+                            if (tagValue != null && !tagValue.equals("")) {
+                                newReadGroupRecord.setAttribute(tagName, tagValue);
                             }
                         }
                     }
-                    readGroupList.add(newReadGroupRecord);
+                }
+                readGroupList.add(newReadGroupRecord);
             }
             fullReadGroupList.addAll(readGroupList);
 
@@ -368,7 +375,7 @@ public class BamIndexDecoder extends Illumina2bamCommandLine {
                         + "_"
                         + namedBarcode.lane
                         + "_"
-                        + ((!"".equals(namedBarcode.barcode)) ? namedBarcode.barcode + "_" : "")
+                        + ((!"".equals(namedBarcode.originalBarcode)) ? namedBarcode.originalBarcode + "_" : "")
                         + "pf"
                         + "."
                         + OUTPUT_FORMAT;
@@ -410,7 +417,7 @@ public class BamIndexDecoder extends Illumina2bamCommandLine {
                         + "_"
                         + namedBarcode.lane
                         + "_"
-                        + ((!"".equals(namedBarcode.barcode)) ? namedBarcode.barcode + "_" : "")
+                        + ((!"".equals(namedBarcode.originalBarcode)) ? namedBarcode.originalBarcode + "_" : "")
                         + "non_pf"
                         + "."
                         + OUTPUT_FORMAT;

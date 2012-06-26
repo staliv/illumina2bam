@@ -73,6 +73,9 @@ public class BamIndexDecoder extends Illumina2bamCommandLine {
     
     @Option(doc="The output directory for bam files for each barcode if you want to split the output", mutex = {"OUTPUT"})
     public File OUTPUT_DIR;
+
+    @Option(doc="The timeId used for the undetermined directory containing barcodes if you want to split the output", mutex = {"OUTPUT"})
+    public String UNDETERMINED_TIME_ID;
     
     @Option(doc="The prefix for bam or sam file when you want to split output by barcodes", mutex = {"OUTPUT"})
     public String OUTPUT_PREFIX;
@@ -387,6 +390,8 @@ public class BamIndexDecoder extends Illumina2bamCommandLine {
                         + File.separator
                         + runFolder
                         + File.separator
+                        + UNDETERMINED_TIME_ID
+                        + File.separator
                         + "Undetermined_"
                         + fcid
                         + "_"
@@ -429,6 +434,8 @@ public class BamIndexDecoder extends Illumina2bamCommandLine {
                         + File.separator
                         + runFolder
                         + File.separator
+                        + UNDETERMINED_TIME_ID
+                        + File.separator
                         + "Undetermined_"
                         + fcid
                         + "_"
@@ -456,6 +463,8 @@ public class BamIndexDecoder extends Illumina2bamCommandLine {
                     + "Undetermined"
                     + File.separator
                     + runFolder
+                    + File.separator
+                    + UNDETERMINED_TIME_ID
                     + File.separator
                     + "Controls_"
                     + fcid
